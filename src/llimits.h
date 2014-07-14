@@ -44,7 +44,7 @@ typedef unsigned char lu_byte;
 
 
 /* type to ensure maximum alignment */
-typedef LUAI_USER_ALIGNMENT_T L_Umaxalign;
+typedef LUAI_USER_ALIGNMENT_T L_Umaxalign;	// 定义在Luaconf.h中 union { double u; void *s; long l; } 在不同的环境下代表最长的数和最长的指针
 
 
 /* result of a `usual argument conversion' over lua_Number */

@@ -133,7 +133,7 @@ struct lua_State {
 /*
 ** Union of all collectable objects
 */
-union GCObject {
+union GCObject {// 每个GCObject结构体都有一个CommonHeader位于最开始部分
   GCheader gch;
   union TString ts;
   union Udata u;
@@ -142,7 +142,7 @@ union GCObject {
   struct Proto p;
   struct UpVal uv;
   struct lua_State th;  /* thread */
-}; // 这部分还是数据的时候,数据部分(除gch外)启用,否则就是gc部分了(gch)
+}; // 这部分还是数据的时候,数据部分(除gch外)启用,否则就是gc部分了(gch) 
 
 
 /* macros to convert a GCObject into a specific value */

@@ -33,8 +33,7 @@
 /*
 ** Union of all collectable objects
 */
-typedef union GCObject GCObject;
-
+typedef union GCObject GCObject; // 定义在Lstate.h中
 
 /*
 ** Common Header for all collectable objects (in macro form, to be
@@ -220,7 +219,7 @@ typedef TValue *StkId;  /* index to stack elements */
 /*
 ** String headers for string table
 */
-typedef union TString {
+typedef union TString { // dummy使GCObject字节对齐,使得GCObject至少占一个word大小
   L_Umaxalign dummy;  /* ensures maximum alignment for strings */
   struct {
     CommonHeader;
