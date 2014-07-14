@@ -223,9 +223,9 @@ typedef union TString { // dummyÊ¹GCObject×Ö½Ú¶ÔÆë,Ê¹µÃGCObjectÖÁÉÙÕ¼Ò»¸öword´óĞ
   L_Umaxalign dummy;  /* ensures maximum alignment for strings */
   struct {
     CommonHeader;
-    lu_byte reserved;
-    unsigned int hash;
-    size_t len;
+    lu_byte reserved; // ÊÇ·ñÎª±£Áô×Ö·û´®,¹Ø¼ü×Ö;²»Îª0Ôò±íÊ¾ÔÚÊı×éluaX_tokensÖĞµÄË÷Òı,²»»á±»»ØÊÕ;ÔÚLlex.cµÄluaX_initÖĞ´¦Àí
+    unsigned int hash;	// hashÖµ
+    size_t len;	// ×Ö·û´®³¤¶È
   } tsv;
 } TString;
 

@@ -68,7 +68,7 @@ void luaX_init (lua_State *L) {
     luaS_fix(ts);  /* reserved words are never collected */
     lua_assert(strlen(luaX_tokens[i])+1 <= TOKEN_LEN);
     ts->tsv.reserved = cast_byte(i+1);  /* reserved word */
-  }
+  } // 将保留字字段设置为在luaX_tokens中的索引,可快速定位关键字,也使其不被GC回收
 }
 
 

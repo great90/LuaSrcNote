@@ -432,7 +432,7 @@ static void checkSizes (lua_State *L) {
   global_State *g = G(L);
   /* check size of string hash */
   if (g->strt.nuse < cast(lu_int32, g->strt.size/4) &&
-      g->strt.size > MINSTRTABSIZE*2)
+      g->strt.size > MINSTRTABSIZE*2) // 当前字符串个数小于容量的1/4，并且容量大于最小限度的两倍则缩小容量
     luaS_resize(L, g->strt.size/2);  /* table is too big */
   /* check size of buffer */
   if (luaZ_sizebuffer(&g->buff) > LUA_MINBUFFER*2) {  /* buffer too big? */

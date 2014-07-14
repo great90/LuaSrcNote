@@ -36,9 +36,9 @@ struct lua_longjmp;  /* defined in ldo.c */
 
 
 typedef struct stringtable {
-  GCObject **hash;
-  lu_int32 nuse;  /* number of elements */
-  int size;
+  GCObject **hash; // 对于TString,先计算其hash值,既在stringtable中hash的索引值,若该位置已经有元素,则用链表串起来;一个GCObject的表，在这里其实是个TString*数组
+  lu_int32 nuse;  /* number of elements */ // 已有的字符串个数
+  int size;	// 哈希表大小
 } stringtable;
 
 
@@ -66,7 +66,7 @@ typedef struct CallInfo {
 ** `global state', shared by all threads of this state
 */
 typedef struct global_State {
-  stringtable strt;  /* hash table for strings */
+  stringtable strt;  /* hash table for strings */ // 专门用于存放字符串的hash数组
   lua_Alloc frealloc;  /* function to reallocate memory */
   void *ud;         /* auxiliary data to `frealloc' */
   lu_byte currentwhite;
