@@ -56,7 +56,7 @@
 /*
 ** for some types, it is better to avoid modulus by power of 2, as
 ** they tend to have many 2 factors.
-*/
+*/// 根据hash值对hash部分大小(或1的作用保证不会对0取模)获得hash部分对应位置的地址
 #define hashmod(t,n)	(gnode(t, ((n) % ((sizenode(t)-1)|1))))
 
 
@@ -80,14 +80,14 @@ static const Node dummynode_ = {
 
 /*
 ** hash for lua_Numbers
-*/
+*/// 根据数字获得hash部分对应的地址 hash方式是将数字的各个字对应的数值相加结果再取模
 static Node *hashnum (const Table *t, lua_Number n) {
   unsigned int a[numints];
   int i;
   if (luai_numeq(n, 0))  /* avoid problems with -0 */
     return gnode(t, 0);
   memcpy(a, &n, sizeof(a));
-  for (i = 1; i < numints; i++) a[0] += a[i];
+  for (i = 1; i < numints; i++) a[0] += a[i];// 各字和
   return hashmod(t, a[0]);
 }
 
@@ -96,7 +96,7 @@ static Node *hashnum (const Table *t, lua_Number n) {
 /*
 ** returns the `main' position of an element in a table (that is, the index
 ** of its hash value)
-*/
+*/// 返回主位置的元素 主位置是其hash值对应的第一个位置
 static Node *mainposition (const Table *t, const TValue *key) {
   switch (ttype(key)) {
     case LUA_TNUMBER:
@@ -133,7 +133,7 @@ static int arrayindex (const TValue *key) {
 ** returns the index of a `key' for table traversals. First goes all
 ** elements in the array part, then elements in the hash part. The
 ** beginning of a traversal is signalled by -1.
-*/
+*/	// 返回key在table中的下标(首先从数组部分查找，再从hash部分查找)
 static int findindex (lua_State *L, Table *t, StkId key) {
   int i;
   if (ttisnil(key)) return -1;  /* first iteration */
@@ -141,17 +141,17 @@ static int findindex (lua_State *L, Table *t, StkId key) {
   if (0 < i && i <= t->sizearray)  /* is `key' inside array part? */
     return i-1;  /* yes; that's the index (corrected to C) */
   else {
-    Node *n = mainposition(t, key);
+    Node *n = mainposition(t, key);// 从主位开始找
     do {  /* check whether `key' is somewhere in the chain */
       /* key may be dead already, but it is ok to use it in `next' */
-      if (luaO_rawequalObj(key2tval(n), key) ||
-            (ttype(gkey(n)) == LUA_TDEADKEY && iscollectable(key) &&
-             gcvalue(gkey(n)) == gcvalue(key))) {
+      if (luaO_rawequalObj(key2tval(n), key) ||	// key在当前位置
+            (ttype(gkey(n)) == LUA_TDEADKEY && iscollectable(key) && // 可被回收
+             gcvalue(gkey(n)) == gcvalue(key))) {// gc数据也相同
         i = cast_int(n - gnode(t, 0));  /* key index in hash table */
         /* hash elements are numbered after array ones */
         return i + t->sizearray;
       }
-      else n = gnext(n);
+      else n = gnext(n);// 迭代下一个hash值相同的key
     } while (n);
     luaG_runerror(L, "invalid key to " LUA_QL("next"));  /* key not found */
     return 0;  /* to avoid warnings */

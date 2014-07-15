@@ -345,8 +345,8 @@ typedef union Closure {
 
 typedef union TKey {
   struct {
-    TValuefields;
-    struct Node *next;  /* for chaining */
+    TValuefields;	// Value value; int tt; 就是一个TValue
+    struct Node *next;  /* for chaining */// 同一个hash值下冲突时通过该指针形成链表
   } nk;
   TValue tvk;
 } TKey;
@@ -354,20 +354,20 @@ typedef union TKey {
 
 typedef struct Node {
   TValue i_val;
-  TKey i_key;
+  TKey i_key;	
 } Node;
 
 
 typedef struct Table {
-  CommonHeader;
-  lu_byte flags;  /* 1<<p means tagmethod(p) is not present */ 
-  lu_byte lsizenode;  /* log2 of size of `node' array */
-  struct Table *metatable;
-  TValue *array;  /* array part */
-  Node *node;
-  Node *lastfree;  /* any free position is before this position */
-  GCObject *gclist;
-  int sizearray;  /* size of `array' array */
+  CommonHeader;	// 与TValue中GCHeader对应的部分
+  lu_byte flags;  /* 1<<p means tagmethod(p) is not present */ // 标记是否存在某个元方法(8个),是一种优化方式
+  lu_byte lsizenode;  /* log2 of size of `node' array */// hash部分长度的log2值, hash部分长度为2的幂，每次增长都是翻倍
+  struct Table *metatable;// 元表
+  TValue *array;  /* array part */// 数组部分
+  Node *node;	// hash部分 物理上采用一个Node数组，逻辑上通过key部分的next指针指向下一个hash值相同产生冲突的元素形成链表，查找时间复杂度为O(n)，实现简单
+  Node *lastfree;  /* any free position is before this position */// hash部分最后一个空闲的位置
+  GCObject *gclist;// 用与gc
+  int sizearray;  /* size of `array' array */// 数组元素个数
 } Table;
 
 
