@@ -116,12 +116,12 @@ static Node *mainposition (const Table *t, const TValue *key) {
 /*
 ** returns the index for `key' if `key' is an appropriate key to live in
 ** the array part of the table, -1 otherwise.
-*/
+*/ // 如果key可作为数组部分的键，则返回该键代表的索引值
 static int arrayindex (const TValue *key) {
   if (ttisnumber(key)) {
     lua_Number n = nvalue(key);
     int k;
-    lua_number2int(k, n);
+    lua_number2int(k, n);// k = n
     if (luai_numeq(cast_num(k), n))
       return k;
   }
@@ -185,29 +185,29 @@ int luaH_next (lua_State *L, Table *t, StkId key) {
 ** ==============================================================
 */
 
-
+// 计算table数组部分的恰当大小；数组部分不要求连续，允许存在空位，但空位个数必须小于元素个数，数组大小必定为2的幂
 static int computesizes (int nums[], int *narray) {
   int i;
-  int twotoi;  /* 2^i */
+  int twotoi;  /* 2^i */ // 当前预期的数组部分大小
   int a = 0;  /* number of elements smaller than 2^i */
-  int na = 0;  /* number of elements to go to array part */
-  int n = 0;  /* optimal size for array part */
+  int na = 0;  /* number of elements to go to array part */// 数组部分元素个数
+  int n = 0;  /* optimal size for array part */// 数组部分的理想大小
   for (i = 0, twotoi = 1; twotoi/2 < *narray; i++, twotoi *= 2) {
     if (nums[i] > 0) {
-      a += nums[i];
-      if (a > twotoi/2) {  /* more than half elements present? */
-        n = twotoi;  /* optimal size (till now) */
-        na = a;  /* all elements smaller than n will go to array part */
+      a += nums[i];// 当前统计的数组元素个数
+      if (a > twotoi/2) {  /* more than half elements present? */// 当前所有元素个数必须超过数组大小的一半
+        n = twotoi;  /* optimal size (till now) */ // 更新最佳大小
+        na = a;  /* all elements smaller than n will go to array part */// 数组部分元素的个数
       }
     }
     if (a == *narray) break;  /* all elements already counted */
   }
-  *narray = n;
+  *narray = n;// 调整后的数组大小
   lua_assert(*narray/2 <= na && na <= *narray);
   return na;
 }
 
-
+// 如果key可作为数组的键值，则计数加一
 static int countint (const TValue *key, int *nums) {
   int k = arrayindex(key);
   if (0 < k && k <= MAXASIZE) {  /* is `key' an appropriate array index? */
@@ -218,18 +218,18 @@ static int countint (const TValue *key, int *nums) {
     return 0;
 }
 
-
+// 计算数组部分元素个数
 static int numusearray (const Table *t, int *nums) {
   int lg;
-  int ttlg;  /* 2^lg */
-  int ause = 0;  /* summation of `nums' */
+  int ttlg;  /* 2^lg */// 因为每次数组大小的增长是按照容量翻倍进行的，所以统计时也按照同样的方式分段
+  int ause = 0;  /* summation of `nums' */// 所有元素个数
   int i = 1;  /* count to traverse all array keys */
-  for (lg=0, ttlg=1; lg<=MAXBITS; lg++, ttlg*=2) {  /* for each slice */
+  for (lg=0, ttlg=1; lg<=MAXBITS; lg++, ttlg*=2) {  /* for each slice */// 每次统计区间范围翻倍
     int lc = 0;  /* counter */
     int lim = ttlg;
     if (lim > t->sizearray) {
-      lim = t->sizearray;  /* adjust upper limit */
-      if (i > lim)
+      lim = t->sizearray;  /* adjust upper limit */// 区间元素个数的上限
+      if (i > lim)	// 所有元素都已经统计完了
         break;  /* no more elements to count */
     }
     /* count elements in range (2^(lg-1), 2^lg] */
@@ -237,17 +237,17 @@ static int numusearray (const Table *t, int *nums) {
       if (!ttisnil(&t->array[i-1]))
         lc++;
     }
-    nums[lg] += lc;
+    nums[lg] += lc;// 分段计数
     ause += lc;
   }
   return ause;
 }
 
-
+// hash部分元素个数
 static int numusehash (const Table *t, int *nums, int *pnasize) {
   int totaluse = 0;  /* total number of elements */
   int ause = 0;  /* summation of `nums' */
-  int i = sizenode(t);
+  int i = sizenode(t);// hash部分大小
   while (i--) {
     Node *n = &t->node[i];
     if (!ttisnil(gval(n))) {
@@ -329,21 +329,21 @@ void luaH_resizearray (lua_State *L, Table *t, int nasize) {
   resize(L, t, nasize, nsize);
 }
 
-
+// rehash非常耗时，lua为提高效率，尽量少进行rehash；如对一个只有hash部分的table插入key为1的项，该项被暂时保存在hash部分，计算数组大小时再将其插入到数组部分
 static void rehash (lua_State *L, Table *t, const TValue *ek) {
   int nasize, na;
   int nums[MAXBITS+1];  /* nums[i] = number of keys between 2^(i-1) and 2^i */
   int i;
   int totaluse;
   for (i=0; i<=MAXBITS; i++) nums[i] = 0;  /* reset counts */
-  nasize = numusearray(t, nums);  /* count keys in array part */
+  nasize = numusearray(t, nums);  /* count keys in array part */// 当前数组部分元素个数
   totaluse = nasize;  /* all those keys are integer keys */
-  totaluse += numusehash(t, nums, &nasize);  /* count keys in hash part */
+  totaluse += numusehash(t, nums, &nasize);  /* count keys in hash part */// 当前hash部分元素个数，会顺便将可作为数组部分的元素统计到数组部分的个数中
   /* count extra key */
-  nasize += countint(ek, nums);
+  nasize += countint(ek, nums);// 统计的是key为数字的项数
   totaluse++;
   /* compute new size for array part */
-  na = computesizes(nums, &nasize);
+  na = computesizes(nums, &nasize);	// na:数组部分元素个数 nasize:数组部分大小
   /* resize the table to new computed sizes */
   resize(L, t, nasize, totaluse - na);
 }
