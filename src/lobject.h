@@ -364,10 +364,10 @@ typedef struct Table {
   lu_byte lsizenode;  /* log2 of size of `node' array */// hash部分长度的log2值, hash部分长度为2的幂，每次增长都是翻倍
   struct Table *metatable;// 元表
   TValue *array;  /* array part */// 数组部分
-  Node *node;	// hash部分 物理上采用一个Node数组，逻辑上通过key部分的next指针指向下一个hash值相同产生冲突的元素形成链表，查找时间复杂度为O(n)，实现简单
+  Node *node;	// hash部分 物理上采用一个Node数组，逻辑上作为一个hash表；通过key部分的next指针指向下一个hash值相同产生冲突的元素形成链表
   Node *lastfree;  /* any free position is before this position */// hash部分最后一个空闲的位置
   GCObject *gclist;// 用与gc
-  int sizearray;  /* size of `array' array */// 数组元素个数
+  int sizearray;  /* size of `array' array */// 数组大小
 } Table;
 
 

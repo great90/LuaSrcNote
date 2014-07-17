@@ -158,7 +158,7 @@ static int findindex (lua_State *L, Table *t, StkId key) {
   }
 }
 
-
+// 取下一个元素 先从数组部分找，没有找到再从hash部分找
 int luaH_next (lua_State *L, Table *t, StkId key) {
   int i = findindex(L, t, key);  /* find original element */
   for (i++; i < t->sizearray; i++) {  /* try first array part */
@@ -259,7 +259,7 @@ static int numusehash (const Table *t, int *nums, int *pnasize) {
   return totaluse;
 }
 
-
+// 扩展table的数组部分，并将扩展的部分全部填充nil
 static void setarrayvector (lua_State *L, Table *t, int size) {
   int i;
   luaM_reallocvector(L, t->array, t->sizearray, size, TValue);
@@ -268,10 +268,10 @@ static void setarrayvector (lua_State *L, Table *t, int size) {
   t->sizearray = size;
 }
 
-
+// 重新分配table的hash部分，使其大小为可以容纳size个元素且为最小的2次幂，将其全部填充为nil
 static void setnodevector (lua_State *L, Table *t, int size) {
   int lsize;
-  if (size == 0) {  /* no elements to hash part? */
+  if (size == 0) {  /* no elements to hash part? */ // 没有hash部分
     t->node = cast(Node *, dummynode);  /* use common `dummynode' */
     lsize = 0;
   }
@@ -280,17 +280,17 @@ static void setnodevector (lua_State *L, Table *t, int size) {
     lsize = ceillog2(size);
     if (lsize > MAXBITS)
       luaG_runerror(L, "table overflow");
-    size = twoto(lsize);
+    size = twoto(lsize);	// 先求对数值再求幂，新的大小足以容纳所有元素且为2的幂
     t->node = luaM_newvector(L, size, Node);
     for (i=0; i<size; i++) {
-      Node *n = gnode(t, i);
+      Node *n = gnode(t, i);// 取出所有元素并设置为nil
       gnext(n) = NULL;
       setnilvalue(gkey(n));
       setnilvalue(gval(n));
     }
   }
   t->lsizenode = cast_byte(lsize);
-  t->lastfree = gnode(t, size);  /* all positions are free */
+  t->lastfree = gnode(t, size);  /* all positions are free */// 所有位置都是空的
 }
 
 
@@ -298,28 +298,28 @@ static void resize (lua_State *L, Table *t, int nasize, int nhsize) {
   int i;
   int oldasize = t->sizearray;
   int oldhsize = t->lsizenode;
-  Node *nold = t->node;  /* save old hash ... */
+  Node *nold = t->node;  /* save old hash ... */ // 保存旧的hash部分
   if (nasize > oldasize)  /* array part must grow? */
-    setarrayvector(L, t, nasize);
+    setarrayvector(L, t, nasize);// 扩展数组部分空间，并将扩展的部分填充nil
   /* create new hash part with appropriate size */
-  setnodevector(L, t, nhsize);  
+  setnodevector(L, t, nhsize);  // 根据hash部分元素个数生成新的hash部分，大小也是2的幂
   if (nasize < oldasize) {  /* array part must shrink? */
     t->sizearray = nasize;
     /* re-insert elements from vanishing slice */
     for (i=nasize; i<oldasize; i++) {
-      if (!ttisnil(&t->array[i]))
+      if (!ttisnil(&t->array[i]))// 将需要从数组部分移出的项拷贝到hash部分
         setobjt2t(L, luaH_setnum(L, t, i+1), &t->array[i]);
     }
-    /* shrink array */
+    /* shrink array */// 收缩数组部分
     luaM_reallocvector(L, t->array, oldasize, nasize, TValue);
   }
   /* re-insert elements from hash part */
   for (i = twoto(oldhsize) - 1; i >= 0; i--) {
     Node *old = nold+i;
-    if (!ttisnil(gval(old)))
+    if (!ttisnil(gval(old)))// 将旧的hash部分的元素插回table中，包括数组部分和hash部分
       setobjt2t(L, luaH_set(L, t, key2tval(old)), gval(old));
-  }
-  if (nold != dummynode)
+  }				 // 取出对应key的Node，没有key就创建一个
+  if (nold != dummynode)	// 回收旧的hash部分
     luaM_freearray(L, nold, twoto(oldhsize), Node);  /* free old array */
 }
 
@@ -354,10 +354,10 @@ static void rehash (lua_State *L, Table *t, const TValue *ek) {
 ** }=============================================================
 */
 
-
+// 创建一个table对象
 Table *luaH_new (lua_State *L, int narray, int nhash) {
   Table *t = luaM_new(L, Table);
-  luaC_link(L, obj2gco(t), LUA_TTABLE);
+  luaC_link(L, obj2gco(t), LUA_TTABLE);// gc相关，将该table插入全局状态机gc链表的开头
   t->metatable = NULL;
   t->flags = cast_byte(~0);
   /* temporary values (kept only if some malloc fails) */
@@ -370,15 +370,15 @@ Table *luaH_new (lua_State *L, int narray, int nhash) {
   return t;
 }
 
-
+// 释放table空间
 void luaH_free (lua_State *L, Table *t) {
-  if (t->node != dummynode)
+  if (t->node != dummynode)// 释放hash部分
     luaM_freearray(L, t->node, sizenode(t), Node);
-  luaM_freearray(L, t->array, t->sizearray, TValue);
+  luaM_freearray(L, t->array, t->sizearray, TValue);// 释放数组部分
   luaM_free(L, t);
 }
 
-
+// 去最后一个空位
 static Node *getfreepos (Table *t) {
   while (t->lastfree-- > t->node) {
     if (ttisnil(gkey(t->lastfree)))
@@ -395,35 +395,37 @@ static Node *getfreepos (Table *t) {
 ** position or not: if it is not, move colliding node to an empty place and 
 ** put new key in its main position; otherwise (colliding node is in its main 
 ** position), new key goes to an empty position. 
-*/
+*/ /* 插入一个新的key到hash表中;首先会判断当前key的主位是否是空闲的。如果不是，
+判断冲突的元素是否在其主位上(两者hash值相同):若不是，将冲突元素移到一个空位上，
+再将当前key放到主位上；若是，则将当前key放到空位上。返回新建key对应value的地址 */
 static TValue *newkey (lua_State *L, Table *t, const TValue *key) {
   Node *mp = mainposition(t, key);
   if (!ttisnil(gval(mp)) || mp == dummynode) {
     Node *othern;
     Node *n = getfreepos(t);  /* get a free place */
-    if (n == NULL) {  /* cannot find a free place? */
-      rehash(L, t, key);  /* grow table */
+    if (n == NULL) {  /* cannot find a free place? */// 找不到空位
+      rehash(L, t, key);  /* grow table */ // 调整table大小
       return luaH_set(L, t, key);  /* re-insert key into grown table */
     }
     lua_assert(n != dummynode);
-    othern = mainposition(t, key2tval(mp));
-    if (othern != mp) {  /* is colliding node out of its main position? */
-      /* yes; move colliding node into free position */
-      while (gnext(othern) != mp) othern = gnext(othern);  /* find previous */
-      gnext(othern) = n;  /* redo the chain with `n' in place of `mp' */
-      *n = *mp;  /* copy colliding node into free pos. (mp->next also goes) */
-      gnext(mp) = NULL;  /* now `mp' is free */
+    othern = mainposition(t, key2tval(mp));// 冲突元素的主位
+    if (othern != mp) {  /* is colliding node out of its main position? */// 冲突元素不在其主位
+      /* yes; move colliding node into free position */// 将冲突元素移到空位上；如果冲突元素不在主位，说明是在主位产生同hash冲突后放到空闲位置上的，从其主位开始一定可以链到该冲突元素
+      while (gnext(othern) != mp) othern = gnext(othern);  /* find previous */// 找到冲突元素的前驱
+      gnext(othern) = n;  /* redo the chain with `n' in place of `mp' */// 将空位链到冲突元素的前驱后
+      *n = *mp;  /* copy colliding node into free pos. (mp->next also goes) */// 拷贝冲突元素到空位上
+      gnext(mp) = NULL;  /* now `mp' is free */// 释放冲突元素
       setnilvalue(gval(mp));
     }
-    else {  /* colliding node is in its own main position */
+    else {  /* colliding node is in its own main position */// 冲突元素在主位，两者有相同的hash值
       /* new node will go into free position */
-      gnext(n) = gnext(mp);  /* chain new position */
+      gnext(n) = gnext(mp);  /* chain new position */// 链到主位之后
       gnext(mp) = n;
       mp = n;
     }
   }
-  gkey(mp)->value = key->value; gkey(mp)->tt = key->tt;
-  luaC_barriert(L, t, key);
+  gkey(mp)->value = key->value; gkey(mp)->tt = key->tt;// key拷贝
+  luaC_barriert(L, t, key);	// gc相关
   lua_assert(ttisnil(gval(mp)));
   return gval(mp);
 }
@@ -431,15 +433,15 @@ static TValue *newkey (lua_State *L, Table *t, const TValue *key) {
 
 /*
 ** search function for integers
-*/
+*/// 返回table中键值为数字类型key的元素的value部分地址
 const TValue *luaH_getnum (Table *t, int key) {
   /* (1 <= key && key <= t->sizearray) */
   if (cast(unsigned int, key-1) < cast(unsigned int, t->sizearray))
-    return &t->array[key-1];
+    return &t->array[key-1];// 数组部分
   else {
     lua_Number nk = cast_num(key);
-    Node *n = hashnum(t, nk);
-    do {  /* check whether `key' is somewhere in the chain */
+    Node *n = hashnum(t, nk);// 取hash部分hash值对应的主位元素
+    do {  /* check whether `key' is somewhere in the chain */// 在链表中迭代寻找该key对应的元素
       if (ttisnumber(gkey(n)) && luai_numeq(nvalue(gkey(n)), nk))
         return gval(n);  /* that's it */
       else n = gnext(n);
@@ -451,10 +453,10 @@ const TValue *luaH_getnum (Table *t, int key) {
 
 /*
 ** search function for strings
-*/
+*/// 返回table中键值为字符串类型key的元素的value部分地址
 const TValue *luaH_getstr (Table *t, TString *key) {
-  Node *n = hashstr(t, key);
-  do {  /* check whether `key' is somewhere in the chain */
+  Node *n = hashstr(t, key);// 根据hash值取主位元素
+  do {  /* check whether `key' is somewhere in the chain */ // 迭代寻找该key对应的元素
     if (ttisstring(gkey(n)) && rawtsvalue(gkey(n)) == key)
       return gval(n);  /* that's it */
     else n = gnext(n);
@@ -465,7 +467,7 @@ const TValue *luaH_getstr (Table *t, TString *key) {
 
 /*
 ** main search function
-*/
+*/ // 返回table中键值为key的元素的value部分地址
 const TValue *luaH_get (Table *t, const TValue *key) {
   switch (ttype(key)) {
     case LUA_TNIL: return luaO_nilobject;
@@ -479,9 +481,9 @@ const TValue *luaH_get (Table *t, const TValue *key) {
       /* else go through */
     }
     default: {
-      Node *n = mainposition(t, key);
+      Node *n = mainposition(t, key); // 根据hash值取主位元素
       do {  /* check whether `key' is somewhere in the chain */
-        if (luaO_rawequalObj(key2tval(n), key))
+        if (luaO_rawequalObj(key2tval(n), key))// 迭代寻找该key对应的元素
           return gval(n);  /* that's it */
         else n = gnext(n);
       } while (n);
@@ -490,7 +492,7 @@ const TValue *luaH_get (Table *t, const TValue *key) {
   }
 }
 
-
+// 取对key对应元素的value部分地址，如果元素不存在，则新建一个
 TValue *luaH_set (lua_State *L, Table *t, const TValue *key) {
   const TValue *p = luaH_get(t, key);
   t->flags = 0;
@@ -504,7 +506,7 @@ TValue *luaH_set (lua_State *L, Table *t, const TValue *key) {
   }
 }
 
-
+// 取对类型为(整型)数字的key对应元素的value部分地址，如果元素不存在，则新建一个
 TValue *luaH_setnum (lua_State *L, Table *t, int key) {
   const TValue *p = luaH_getnum(t, key);
   if (p != luaO_nilobject)
@@ -516,7 +518,7 @@ TValue *luaH_setnum (lua_State *L, Table *t, int key) {
   }
 }
 
-
+// 取对类型为字符串的key对应元素的value部分地址，如果元素不存在，则新建一个
 TValue *luaH_setstr (lua_State *L, Table *t, TString *key) {
   const TValue *p = luaH_getstr(t, key);
   if (p != luaO_nilobject)
