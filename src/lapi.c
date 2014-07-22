@@ -482,18 +482,18 @@ LUA_API const char *lua_pushfstring (lua_State *L, const char *fmt, ...) {
   return ret;
 }
 
-
+// 将CClosure压栈
 LUA_API void lua_pushcclosure (lua_State *L, lua_CFunction fn, int n) {
   Closure *cl;
   lua_lock(L);
   luaC_checkGC(L);
-  api_checknelems(L, n);
-  cl = luaF_newCclosure(L, n, getcurrenv(L));
+  api_checknelems(L, n);	// 获得参数个数n
+  cl = luaF_newCclosure(L, n, getcurrenv(L));// 创建一个Cclosure
   cl->c.f = fn;
   L->top -= n;
-  while (n--)
-    setobj2n(L, &cl->c.upvalue[n], L->top+n);
-  setclvalue(L, L->top, cl);
+  while (n--)// 将调用函数f所需要的参数都放到upvalue中
+    setobj2n(L, &cl->c.upvalue[n], L->top+n);// 参数从又往左
+  setclvalue(L, L->top, cl);// 然后栈中只保存cclosure本身,当调用函数的时候(有一个全局的指针指向当前的调用函数),能够直接得到所需参数,然后调用函数
   lua_assert(iswhite(obj2gco(cl)));
   api_incr_top(L);
   lua_unlock(L);

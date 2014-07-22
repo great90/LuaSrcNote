@@ -44,16 +44,16 @@ typedef struct stringtable {
 
 /*
 ** informations about a call
-*/
+*/// 调用信息
 typedef struct CallInfo {
   StkId base;  /* base for this function */
   StkId func;  /* function index in the stack */
   StkId	top;  /* top for this function */
-  const Instruction *savedpc;
-  int nresults;  /* expected number of results from this function */
-  int tailcalls;  /* number of tail calls lost under this entry */
-} CallInfo;
-
+  const Instruction *savedpc;// 函数调用中断时记录当前闭包执行到的pc位置
+  int nresults;  /* expected number of results from this function */// 返回值个数，-1为任意返回个数
+  int tailcalls;  /* number of tail calls lost under this entry */// 记录尾调用次数信息，用于调试
+} CallInfo;		// 每次递归调用都会生成一个CallInfo，而全局CallInfo栈的大小有限，基于2的幂，因此最大深度为16834(2^14<LUAI_MAXCALLS(20000))
+// 尾调用是指在return后直接调用函数，不能有其它操作；尾调用是在编译时分析出来的，有独立的操作码OP_TAILCALL，在虚拟机中的执行代码在lvm.c 603-634
 
 
 #define curr_func(L)	(clvalue(L->ci->func))
@@ -64,11 +64,11 @@ typedef struct CallInfo {
 
 /*
 ** `global state', shared by all threads of this state
-*/
+*/ // 全局状态，被多个线程共享
 typedef struct global_State {
-  stringtable strt;  /* hash table for strings */ // 专门用于存放字符串的hash数组
-  lua_Alloc frealloc;  /* function to reallocate memory */
-  void *ud;         /* auxiliary data to `frealloc' */
+  stringtable strt;  /* hash table for strings */ // 专门用于存放字符串的全局hash数组
+  lua_Alloc frealloc;  /* function to reallocate memory */// 内存分配函数
+  void *ud;         /* auxiliary data to `frealloc' */// frealloc的辅助数据
   lu_byte currentwhite;
   lu_byte gcstate;  /* state of garbage collector */
   int sweepstrgc;  /* position of sweep in `strt' */
@@ -86,44 +86,44 @@ typedef struct global_State {
   int gcpause;  /* size of pause between successive GCs */
   int gcstepmul;  /* GC `granularity' */
   lua_CFunction panic;  /* to be called in unprotected errors */
-  TValue l_registry;
+  TValue l_registry;	// 对应LUAREGISTRYINDEX的全局table
   struct lua_State *mainthread;
   UpVal uvhead;  /* head of double-linked list of all open upvalues */
-  struct Table *mt[NUM_TAGS];  /* metatables for basic types */
-  TString *tmname[TM_N];  /* array with tag-method names */
+  struct Table *mt[NUM_TAGS];  /* metatables for basic types */// Lua5.0的特性，基本类型的元表
+  TString *tmname[TM_N];  /* array with tag-method names */// 元方法名称字符串数组
 } global_State;
 
 
 /*
 ** `per thread' state
-*/
+*/ // 单个线程状态 typedef TValue *StkId
 struct lua_State {
   CommonHeader;
-  lu_byte status;
-  StkId top;  /* first free slot in the stack */
-  StkId base;  /* base of current function */
-  global_State *l_G;
-  CallInfo *ci;  /* call info for current function */
-  const Instruction *savedpc;  /* `savedpc' of current function */
-  StkId stack_last;  /* last free slot in the stack */
-  StkId stack;  /* stack base */
-  CallInfo *end_ci;  /* points after end of ci array*/
-  CallInfo *base_ci;  /* array of CallInfo's */
-  int stacksize;
-  int size_ci;  /* size of array `base_ci' */
-  unsigned short nCcalls;  /* number of nested C calls */
-  unsigned short baseCcalls;  /* nested C calls when resuming coroutine */
-  lu_byte hookmask;
-  lu_byte allowhook;
-  int basehookcount;
-  int hookcount;
-  lua_Hook hook;
-  TValue l_gt;  /* table of globals */
-  TValue env;  /* temporary place for environments */
+  lu_byte status;	// 线程脚本的状态，见Lua.h L42
+  StkId top;  /* first free slot in the stack */// 指向当前线程栈的栈顶指针
+  StkId base;  /* base of current function */// 指向当前函数运行的相对基位置，参考闭包
+  global_State *l_G;	// 指向全局状态的指针
+  CallInfo *ci;  /* call info for current function */// 当前线程运行的函数调用信息
+  const Instruction *savedpc;  /* `savedpc' of current function */// 函数调用前，记录上一个函数的pc位置
+  StkId stack_last;  /* last free slot in the stack */// 栈的实际最后一个位置（栈的长度是动态增长的）
+  StkId stack;  /* stack base */// 栈底
+  CallInfo *end_ci;  /* points after end of ci array*/// 指向函数调用栈的栈顶
+  CallInfo *base_ci;  /* array of CallInfo's */// 指向函数调用栈的栈底
+  int stacksize;	// 栈的大小
+  int size_ci;  /* size of array `base_ci' */// 函数调用栈的大小
+  unsigned short nCcalls;  /* number of nested C calls */// 当前C函数的调用的深度
+  unsigned short baseCcalls;  /* nested C calls when resuming coroutine */// 用于记录每个线程状态的C函数调用深度的辅助成员
+  lu_byte hookmask;	// 是否存在某个钩子函数的掩码，见Lua.h L310
+  lu_byte allowhook;// 是否允许hook
+  int basehookcount;// 用户设置的出发LUA_MASKCOUNT对应的钩子函数需要执行的指令数
+  int hookcount;// 与上面对应的已运行的指令数
+  lua_Hook hook;// 用户注册的钩子函数
+  TValue l_gt;  /* table of globals */// 当前线程执行的全局环境表
+  TValue env;  /* temporary place for environments */// 当前运行的环境表
   GCObject *openupval;  /* list of open upvalues in this stack */
-  GCObject *gclist;
-  struct lua_longjmp *errorJmp;  /* current error recover point */
-  ptrdiff_t errfunc;  /* current error handling function (stack index) */
+  GCObject *gclist;	// 用于gc
+  struct lua_longjmp *errorJmp;  /* current error recover point */// 发生错误时的长跳转位置
+  ptrdiff_t errfunc;  /* current error handling function (stack index) */// 用户注册的错误回调函数
 };
 
 

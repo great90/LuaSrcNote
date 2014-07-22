@@ -571,7 +571,7 @@ union luai_Cast { double l_d; long l_l; };
 #define lua_number2int(i,d) \
   { volatile union luai_Cast u; u.l_d = (d) + 6755399441055744.0; (i) = u.l_l; }
 #define lua_number2integer(i,n)		lua_number2int(i, n)
-
+// 6755399441055744.0=1.5*2^52，在ia-32的架构中，fraction是52位。而在浮点数加法中，首先要做的就是小数点对齐，而对齐标准就是和幂大的对齐。并且小数点前的1是忽略的。因此当相加时，就会将小数点后的四舍五入掉了。而为什么是1.5呢，主要是为了处理负数
 #endif
 
 

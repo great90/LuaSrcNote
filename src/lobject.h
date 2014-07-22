@@ -238,11 +238,11 @@ typedef union TString { // dummyÊ¹GCObject×Ö½Ú¶ÔÆë,Ê¹µÃGCObjectÖÁÉÙÕ¼Ò»¸öword´óÐ
 typedef union Udata {
   L_Umaxalign dummy;  /* ensures maximum alignment for `local' udata */
   struct {
-    CommonHeader;
-    struct Table *metatable;
-    struct Table *env;
-    size_t len;
-  } uv;
+    CommonHeader;	// ÓëTValueÖÐµÄGCHeader¶ÔÓ¦
+    struct Table *metatable; // Ôª±í
+    struct Table *env;	// ÉÏÏÂÎÄ»·¾³£¬´´½¨userdataÊ±£¬»á°Ñµ±Ç°Ö´ÐÐÓï¾äµÄcurenv¸³¸øuserdataµÄenv£¬¿ÉÐÞ¸Ä
+    size_t len; // °ó¶¨¶ÔÏóÉêÇëµÄ¿Õ¼ä´óÐ¡
+  } uv; 	// °ó¶¨µÄC¶ÔÏó»òÊý¾ÝÄÚ´æ½ô¸úÔÚUdataºóÃæ
 } Udata;
 
 
@@ -250,39 +250,39 @@ typedef union Udata {
 
 /*
 ** Function Prototypes
-*/
+*/// º¯ÊýÔ­ÐÍ
 typedef struct Proto {
-  CommonHeader;
-  TValue *k;  /* constants used by the function */
-  Instruction *code;
-  struct Proto **p;  /* functions defined inside the function */
-  int *lineinfo;  /* map from opcodes to source lines */
-  struct LocVar *locvars;  /* information about local variables */
-  TString **upvalues;  /* upvalue names */
-  TString  *source;
-  int sizeupvalues;
-  int sizek;  /* size of `k' */
-  int sizecode;
-  int sizelineinfo;
-  int sizep;  /* size of `p' */
-  int sizelocvars;
-  int linedefined;
-  int lastlinedefined;
-  GCObject *gclist;
-  lu_byte nups;  /* number of upvalues */
-  lu_byte numparams;
-  lu_byte is_vararg;
-  lu_byte maxstacksize;
+  CommonHeader;	// ÓëGCHeader¶ÔÓ¦
+  TValue *k;  /* constants used by the function */// º¯ÊýÊ¹ÓÃµÄ³£Á¿Êý×é
+  Instruction *code;	// ÐéÄâ»úÖ¸ÁîÂëÊý×é
+  struct Proto **p;  /* functions defined inside the function */// º¯ÊýÄÚ¶¨ÒåµÄº¯ÊýÔ­ÐÍ
+  int *lineinfo;  /* map from opcodes to source lines */ // Ã¿¸ö²Ù×÷ÂëËù¶ÔÓ¦µÄÐÐºÅ£¬Ö÷ÒªÓÃÓÚµ÷ÊÔ
+  struct LocVar *locvars;  /* information about local variables */ // ¾Ö²¿±äÁ¿ÐÅÏ¢
+  TString **upvalues;  /* upvalue names */// upvalueÃû³Æ ÓÃÓÚµ÷ÊÔ¼°APIÊ¹ÓÃ
+  TString  *source;	// º¯ÊýÀ´Ô´£¬ÓÃÓÚµ÷ÊÔ
+  int sizeupvalues;	// upvaluesÃû³ÆÊý×éµÄ³¤¶È
+  int sizek;  /* size of `k' */// ³£Á¿Êý×é³¤¶È
+  int sizecode;	// codeÊý×é³¤¶È
+  int sizelineinfo;	// lineinfoÊý×é³¤¶È
+  int sizep;  /* size of `p' */	// pÊý×é³¤¶È
+  int sizelocvars;	// locvarsÊý×é³¤¶È
+  int linedefined;	// º¯Êý¶¨ÒåÆðÊ¼ÐÐºÅ£¬¼´functionÓï¾äÐÐºÅ
+  int lastlinedefined;	// º¯Êý½áÊøÐÐºÅ£¬¼´endÓï¾äÐÐºÅ
+  GCObject *gclist;	// ÓÃÓÚgc
+  lu_byte nups;  /* number of upvalues */// upvalueµÄ¸öÊý£»nupsÔÚÓï·¨·ÖÎöÊ±Éú³É£¬¶øClosureÖÐµÄnupvaluesÊÇ¶¯Ì¬¼ÆËãµÄ
+  lu_byte numparams; // ²ÎÊý¸öÊý
+  lu_byte is_vararg; // ÊÇ·ñ±ä²Îº¯Êý
+  lu_byte maxstacksize; // º¯ÊýËùÊ¹ÓÃµÄstacksize
 } Proto;
+// ProtoµÄËùÓÐ²ÎÊý¶¼ÔÚÓï·¨·ÖÎöºÍÖÐ¼ä´úÂëÉú³ÉÊ±»ñÈ¡£¬Ïàµ±ÓÚ±àÒë³öÀ´µÄ»ã±àÂëÒ»ÑùÊÇ²»»á±äµÄ£¬¶¯Ì¬ÐÔÔÚClosureÖÐÌåÏÖ¡£
 
-
-/* masks for new-style vararg */
+/* masks for new-style vararg */// ÐÂ±ä²Î·ç¸ñÑÚÂë
 #define VARARG_HASARG		1
 #define VARARG_ISVARARG		2
 #define VARARG_NEEDSARG		4
 
 
-typedef struct LocVar {
+typedef struct LocVar {	// ¾Ö²¿±äÁ¿
   TString *varname;
   int startpc;  /* first point where variable is active */
   int endpc;    /* first point where variable is dead */
@@ -292,14 +292,14 @@ typedef struct LocVar {
 
 /*
 ** Upvalues
-*/
-
+*//* UpValµÄÊµÏÖ£ºUpValÊÇÔÚº¯Êý±Õ°üÉú³ÉµÄÊ±ºò£¨ÔËÐÐµ½functionÊ±£©°ó¶¨µÄ¡£UpValÔÚ±Õ°ü»¹Ã»¹Ø±ÕÇ°£¨¼´º¯Êý·µ»ØÇ°£©£¬
+ÊÇ¶ÔÕ»µÄÒýÓÃ£¬ÕâÑù¿ÉÒÔÔÚº¯ÊýÄÚÐÞ¸Ä¶ÔÓ¦µÄÖµ´Ó¶øÐÞ¸ÄUpValµÄÖµ£»±Õ°ü¹Ø±Õºó£¨¼´º¯ÊýÍË³öºó£©£¬UpVal²»ÔÙÊÇÖ¸Õë£¬¶øÊÇÖµ¡£ */
 typedef struct UpVal {
   CommonHeader;
-  TValue *v;  /* points to stack or to its own value */
+  TValue *v;  /* points to stack or to its own value */// µ±º¯Êý´ò¿ªÊ±ÊÇÖ¸Ïò¶ÔÓ¦stackÎ»ÖÃÖµ£¬µ±¹Ø±ÕºóÔòÖ¸Ïò×Ô¼º
   union {
-    TValue value;  /* the value (when closed) */
-    struct {  /* double linked list (when open) */
+    TValue value;  /* the value (when closed) */// º¯Êý¹Ø±Õºó±£´æµÄÖµ
+    struct {  /* double linked list (when open) */// µ±º¯Êý´ò¿ªÊ±È«¾Ö°ó¶¨µÄÓÃÓÚGCµÄË«ÏòÁ´±í
       struct UpVal *prev;
       struct UpVal *next;
     } l;
@@ -310,22 +310,22 @@ typedef struct UpVal {
 /*
 ** Closures
 */
-
+// ±Õ°ü CommonHeaderÓëTValueÖÐGCHeader¶ÔÓ¦µÄ²¿·Ö; isC:ÊÇ·ñCClosure; nupvalues:Íâ²¿¶ÔÏóÊý
 #define ClosureHeader \
 	CommonHeader; lu_byte isC; lu_byte nupvalues; GCObject *gclist; \
-	struct Table *env
+	struct Table *env	// ÔËÐÐ»·¾³
 
 typedef struct CClosure {
   ClosureHeader;
-  lua_CFunction f;
-  TValue upvalue[1];
+  lua_CFunction f;	// Ö¸Ïò×Ô¶¨ÒåCº¯ÊýµÄÖ¸Õë
+  TValue upvalue[1];// °ó¶¨µÄÈÎÒâÊýÁ¿¸öupvalue
 } CClosure;
 
 
 typedef struct LClosure {
   ClosureHeader;
-  struct Proto *p;
-  UpVal *upvals[1];
+  struct Proto *p;	// LuaµÄº¯ÊýÔ­ÐÍ
+  UpVal *upvals[1];	// LuaµÄº¯Êýupvalue,Òò¾ßÌåÊµÏÖÐèÒªÒ»Ð©¶îÍâÊý¾Ý,ËùÒÔ²»Ö±½ÓÓÃTValue
 } LClosure;
 
 
@@ -335,7 +335,7 @@ typedef union Closure {
 } Closure;
 
 
-#define iscfunction(o)	(ttype(o) == LUA_TFUNCTION && clvalue(o)->c.isC)
+#define iscfunction(o)	(ttype(o) == LUA_TFUNCTION &&  (o)->c.isC)
 #define isLfunction(o)	(ttype(o) == LUA_TFUNCTION && !clvalue(o)->c.isC)
 
 

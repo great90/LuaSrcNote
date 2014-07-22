@@ -579,7 +579,7 @@ void luaV_execute (lua_State *L, int nexeccalls) {
         pc++;
         continue;
       }
-      case OP_CALL: {
+      case OP_CALL: {	// 函数调用
         int b = GETARG_B(i);
         int nresults = GETARG_C(i) - 1;
         if (b != 0) L->top = ra+b;  /* else previous instruction set top */
@@ -600,23 +600,23 @@ void luaV_execute (lua_State *L, int nexeccalls) {
           }
         }
       }
-      case OP_TAILCALL: {
+      case OP_TAILCALL: {	// 尾调用 优化思想：先关闭前一个函数，销毁CallInfo，再调用新的CallInfo，这样就会避免全局CallInfo栈溢出。
         int b = GETARG_B(i);
         if (b != 0) L->top = ra+b;  /* else previous instruction set top */
         L->savedpc = pc;
         lua_assert(GETARG_C(i) - 1 == LUA_MULTRET);
         switch (luaD_precall(L, ra, LUA_MULTRET)) {
           case PCRLUA: {
-            /* tail call: put new frame in place of previous one */
-            CallInfo *ci = L->ci - 1;  /* previous frame */
+            /* tail call: put new frame in place of previous one */ // 尾调用将新的帧替换前一帧
+            CallInfo *ci = L->ci - 1;  /* previous frame */// 前一帧
             int aux;
             StkId func = ci->func;
             StkId pfunc = (ci+1)->func;  /* previous function index */
-            if (L->openupval) luaF_close(L, ci->base);
+            if (L->openupval) luaF_close(L, ci->base); // 关闭调用状态
             L->base = ci->base = ci->func + ((ci+1)->base - pfunc);
             for (aux = 0; pfunc+aux < L->top; aux++)  /* move frame down */
-              setobjs2s(L, func+aux, pfunc+aux);
-            ci->top = L->top = func+aux;  /* correct top */
+              setobjs2s(L, func+aux, pfunc+aux); // 将当前调用栈数据下移
+            ci->top = L->top = func+aux;  /* correct top */ // 修正栈顶
             lua_assert(L->top == L->base + clvalue(func)->l.p->maxstacksize);
             ci->savedpc = L->savedpc;
             ci->tailcalls++;  /* one more call lost */

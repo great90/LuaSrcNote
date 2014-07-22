@@ -39,12 +39,12 @@
 #define lua_upvalueindex(i)	(LUA_GLOBALSINDEX-(i))
 
 
-/* thread status; 0 is OK */
-#define LUA_YIELD	1
-#define LUA_ERRRUN	2
-#define LUA_ERRSYNTAX	3
-#define LUA_ERRMEM	4
-#define LUA_ERRERR	5
+/* thread status; 0 is OK */		// 线程状态，0为正常状态
+#define LUA_YIELD	1		// 挂起状态，整个线程上下文被挂起；线程通过lua_yield挂起
+#define LUA_ERRRUN	2		// 发生运行时错误
+#define LUA_ERRSYNTAX	3	// 发生语法分析错误
+#define LUA_ERRMEM	4		// 发生内存分配错误
+#define LUA_ERRERR	5		// 发生其他一些溢出错误
 
 
 typedef struct lua_State lua_State;
@@ -307,7 +307,7 @@ LUA_API void lua_setlevel	(lua_State *from, lua_State *to);
 
 /*
 ** Event codes
-*/
+*/// 钩子函数事件代码
 #define LUA_HOOKCALL	0
 #define LUA_HOOKRET	1
 #define LUA_HOOKLINE	2
@@ -317,11 +317,11 @@ LUA_API void lua_setlevel	(lua_State *from, lua_State *to);
 
 /*
 ** Event masks
-*/
-#define LUA_MASKCALL	(1 << LUA_HOOKCALL)
-#define LUA_MASKRET	(1 << LUA_HOOKRET)
-#define LUA_MASKLINE	(1 << LUA_HOOKLINE)
-#define LUA_MASKCOUNT	(1 << LUA_HOOKCOUNT)
+*/// 钩子函数事件掩码
+#define LUA_MASKCALL	(1 << LUA_HOOKCALL)	// 函数调用前一刻触发相应钩子函数
+#define LUA_MASKRET	(1 << LUA_HOOKRET)		// 函数返回前一刻触发相应钩子函数
+#define LUA_MASKLINE	(1 << LUA_HOOKLINE)	// 每执行一行代码前触发相应的钩子函数
+#define LUA_MASKCOUNT	(1 << LUA_HOOKCOUNT)// 执行相应条数指令后触发相应的个欧资函数
 
 typedef struct lua_Debug lua_Debug;  /* activation record */
 
