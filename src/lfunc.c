@@ -22,10 +22,10 @@
 
 Closure *luaF_newCclosure (lua_State *L, int nelems, Table *e) {
   Closure *c = cast(Closure *, luaM_malloc(L, sizeCclosure(nelems)));
-  luaC_link(L, obj2gco(c), LUA_TFUNCTION);
+  luaC_link(L, obj2gco(c), LUA_TFUNCTION);	// 链接到全局的gc链表
   c->c.isC = 1;
   c->c.env = e;
-  c->c.nupvalues = cast_byte(nelems);
+  c->c.nupvalues = cast_byte(nelems); // upvalue个数
   return c;
 }
 
@@ -34,43 +34,43 @@ Closure *luaF_newLclosure (lua_State *L, int nelems, Table *e) {
   Closure *c = cast(Closure *, luaM_malloc(L, sizeLclosure(nelems)));
   luaC_link(L, obj2gco(c), LUA_TFUNCTION);
   c->l.isC = 0;
-  c->l.env = e;
-  c->l.nupvalues = cast_byte(nelems);
+  c->l.env = e;	// 运行环境
+  c->l.nupvalues = cast_byte(nelems); // upvalue个数
   while (nelems--) c->l.upvals[nelems] = NULL;
   return c;
 }
 
-
+// 创建一个upvalue
 UpVal *luaF_newupval (lua_State *L) {
   UpVal *uv = luaM_new(L, UpVal);
-  luaC_link(L, obj2gco(uv), LUA_TUPVAL);
-  uv->v = &uv->u.value;
-  setnilvalue(uv->v);
+  luaC_link(L, obj2gco(uv), LUA_TUPVAL); //链接到全局的gc中
+  uv->v = &uv->u.value;	// 初始的upval是close的，指向自身
+  setnilvalue(uv->v);	// 初始值为nil
   return uv;
 }
 
-
+// 查找到对应的upvale
 UpVal *luaF_findupval (lua_State *L, StkId level) {
   global_State *g = G(L);
-  GCObject **pp = &L->openupval;
+  GCObject **pp = &L->openupval; // 从当前lua_state的openupval开始
   UpVal *p;
   UpVal *uv;
-  while (*pp != NULL && (p = ngcotouv(*pp))->v >= level) {
+  while (*pp != NULL && (p = ngcotouv(*pp))->v >= level) {// 遍历当前栈所有open的upvalue
     lua_assert(p->v != &p->u.value);
     if (p->v == level) {  /* found a corresponding upvalue? */
       if (isdead(g, obj2gco(p)))  /* is it dead? */
         changewhite(obj2gco(p));  /* ressurect it */
-      return p;
+      return p;	// 找到则直接返回
     }
     pp = &p->next;
   }
-  uv = luaM_new(L, UpVal);  /* not found: create a new one */
+  uv = luaM_new(L, UpVal);  /* not found: create a new one */ // 没有找到则创建一个，并设为open状态
   uv->tt = LUA_TUPVAL;
   uv->marked = luaC_white(g);
-  uv->v = level;  /* current value lives in the stack */
-  uv->next = *pp;  /* chain it in the proper position */
+  uv->v = level;  /* current value lives in the stack */// 指向栈中的对应位置
+  uv->next = *pp;  /* chain it in the proper position */// 插到当前栈的openupval链表头
   *pp = obj2gco(uv);
-  uv->u.l.prev = &g->uvhead;  /* double link it in `uvhead' list */
+  uv->u.l.prev = &g->uvhead;  /* double link it in `uvhead' list *////插入到global_State的uvhead双向链表的头
   uv->u.l.next = g->uvhead.u.l.next;
   uv->u.l.next->u.l.prev = uv;
   g->uvhead.u.l.next = uv;
@@ -78,7 +78,7 @@ UpVal *luaF_findupval (lua_State *L, StkId level) {
   return uv;
 }
 
-
+// 从全局栈global_State的uvhead双向链表中移出某个upvalue
 static void unlinkupval (UpVal *uv) {
   lua_assert(uv->u.l.next->u.l.prev == uv && uv->u.l.prev->u.l.next == uv);
   uv->u.l.next->u.l.prev = uv->u.l.prev;  /* remove from `uvhead' list */
@@ -92,21 +92,21 @@ void luaF_freeupval (lua_State *L, UpVal *uv) {
   luaM_free(L, uv);  /* free upvalue */
 }
 
-
+// 闭包(函数)关闭
 void luaF_close (lua_State *L, StkId level) {
   UpVal *uv;
   global_State *g = G(L);
   while (L->openupval != NULL && (uv = ngcotouv(L->openupval))->v >= level) {
     GCObject *o = obj2gco(uv);
     lua_assert(!isblack(o) && uv->v != &uv->u.value);
-    L->openupval = uv->next;  /* remove from `open' list */
+    L->openupval = uv->next;  /* remove from `open' list */// 在当前栈中的open、列表移除
     if (isdead(g, o))
       luaF_freeupval(L, uv);  /* free upvalue */
     else {
-      unlinkupval(uv);
+      unlinkupval(uv); // 从全局栈中移除
       setobj(L, &uv->u.value, uv->v);
-      uv->v = &uv->u.value;  /* now current value lives here */
-      luaC_linkupval(L, uv);  /* link upvalue into `gcroot' list */
+      uv->v = &uv->u.value;  /* now current value lives here */// 将栈中的只拷贝过来
+      luaC_linkupval(L, uv);  /* link upvalue into `gcroot' list */// 加入全局gc列表中
     }
   }
 }

@@ -88,7 +88,7 @@ typedef struct global_State {
   lua_CFunction panic;  /* to be called in unprotected errors */
   TValue l_registry;	// 对应LUAREGISTRYINDEX的全局table
   struct lua_State *mainthread;
-  UpVal uvhead;  /* head of double-linked list of all open upvalues */
+  UpVal uvhead;  /* head of double-linked list of all open upvalues */ // 整个lua虚拟机里面所有栈的upvalue链表的头
   struct Table *mt[NUM_TAGS];  /* metatables for basic types */// Lua5.0的特性，基本类型的元表
   TString *tmname[TM_N];  /* array with tag-method names */// 元方法名称字符串数组
 } global_State;
@@ -120,7 +120,7 @@ struct lua_State {
   lua_Hook hook;// 用户注册的钩子函数
   TValue l_gt;  /* table of globals */// 当前线程执行的全局环境表
   TValue env;  /* temporary place for environments */// 当前运行的环境表
-  GCObject *openupval;  /* list of open upvalues in this stack */
+  GCObject *openupval;  /* list of open upvalues in this stack */ // 当前的栈上的所有open的uvalue
   GCObject *gclist;	// 用于gc
   struct lua_longjmp *errorJmp;  /* current error recover point */// 发生错误时的长跳转位置
   ptrdiff_t errfunc;  /* current error handling function (stack index) */// 用户注册的错误回调函数
@@ -140,7 +140,7 @@ union GCObject {// 每个GCObject结构体都有一个CommonHeader位于最开始部分
   union Closure cl;
   struct Table h;
   struct Proto p;
-  struct UpVal uv;
+  struct UpVal uv;	// upvalue也是可GC的
   struct lua_State th;  /* thread */
 }; // 这部分还是数据的时候,数据部分(除gch外)启用,否则就是gc部分了(gch) 
 

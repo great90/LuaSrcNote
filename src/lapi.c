@@ -1027,10 +1027,10 @@ LUA_API void *lua_newuserdata (lua_State *L, size_t size) {
   lua_lock(L);
   luaC_checkGC(L);
   u = luaS_newudata(L, size, getcurrenv(L));
-  setuvalue(L, L->top, u);
-  api_incr_top(L);
+  setuvalue(L, L->top, u);// 将udata压入栈
+  api_incr_top(L);	// 更新栈顶指针
   lua_unlock(L);
-  return u + 1;
+  return u + 1;// 去掉头(Udata)然后返回紧跟的内存块地址
 }
 
 

@@ -13,7 +13,7 @@
 
 #define sizeCclosure(n)	(cast(int, sizeof(CClosure)) + \
                          cast(int, sizeof(TValue)*((n)-1)))
-
+// n为upvalue的个数，因为LClosure中已经有一个保存upvalue的空间了，所以这里减一
 #define sizeLclosure(n)	(cast(int, sizeof(LClosure)) + \
                          cast(int, sizeof(TValue *)*((n)-1)))
 

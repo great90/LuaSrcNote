@@ -110,7 +110,7 @@ LUALIB_API const char *(luaL_findtable) (lua_State *L, int idx,
 
 #define luaL_dofile(L, fn) \
 	(luaL_loadfile(L, fn) || lua_pcall(L, 0, LUA_MULTRET, 0))
-
+// luaL_loadfile函数对Lua代码进行词法和语法分析,lua_pcall将分析的结果(也就是opcode)到虚拟机中执行
 #define luaL_dostring(L, s) \
 	(luaL_loadstring(L, s) || lua_pcall(L, 0, LUA_MULTRET, 0))
 

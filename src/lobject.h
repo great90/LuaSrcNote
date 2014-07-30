@@ -313,22 +313,22 @@ typedef struct UpVal {
 // 闭包 CommonHeader与TValue中GCHeader对应的部分; isC:是否CClosure; nupvalues:外部对象数
 #define ClosureHeader \
 	CommonHeader; lu_byte isC; lu_byte nupvalues; GCObject *gclist; \
-	struct Table *env	// 运行环境
+	struct Table *env	// nupvalues表示upvalue或者upvals的大小 env是运行环境
 
 typedef struct CClosure {
   ClosureHeader;
   lua_CFunction f;	// 指向自定义C函数的指针
-  TValue upvalue[1];// 绑定的任意数量个upvalue
+  TValue upvalue[1];// 函数运行所需要的一些参数(比如string 的match函数,它所需要的几个参数都会保存在upvalue里面
 } CClosure;
 
-
+// 在lua中闭包和函数是原型是一样的,只不过函数的upvalue为空,而闭包upvalue包含了它所需要的(非自身的)局部变量值
 typedef struct LClosure {
   ClosureHeader;
   struct Proto *p;	// Lua的函数原型
   UpVal *upvals[1];	// Lua的函数upvalue,因具体实现需要一些额外数据,所以不直接用TValue
 } LClosure;
 
-
+// lua通过upvalue结构实现闭包 对任何外层局部变量的存取间接地通过upvalue来进行，当函数创建的时候会有一个局部变量表upvals; 当闭包创建完毕，会复制upvals的值到upvalue
 typedef union Closure {
   CClosure c;
   LClosure l;
