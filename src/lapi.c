@@ -44,8 +44,8 @@ const char lua_ident[] =
 
 #define api_incr_top(L)   {api_check(L, L->top < L->ci->top); L->top++;}
 
-
-
+// lua提供了三种可以代替全局变量的方法，分别是注册表、环境变量和upvalue，用于多个lua_State；注册表和环境变量都是table
+// 这三类值并不保存在栈上，lua为了统一接口，通过伪索引来存取他们  注册表是全局的（不同模块也能共享)，环境变量可以是整个lua_state共享，也可以只是这个函数所拥有，而upvalue只能属于某个函数
 static TValue *index2adr (lua_State *L, int idx) {
   if (idx > 0) {	// 索引为正，从函数栈底为起始位置向上查找
     TValue *o = L->base + (idx - 1);
@@ -58,17 +58,17 @@ static TValue *index2adr (lua_State *L, int idx) {
     return L->top + idx;
   }
   else switch (idx) {  /* pseudo-indices */
-    case LUA_REGISTRYINDEX: return registry(L); // -10000 返回全局数据global_state的l_registry表
-    case LUA_ENVIRONINDEX: { // -10001
-      Closure *func = curr_func(L);
-      sethvalue(L, &L->env, func->c.env);
+    case LUA_REGISTRYINDEX: return registry(L); // -10000 返回全局数据global_state的l_registry表 在注册表中寻找
+    case LUA_ENVIRONINDEX: { // -10001 环境变量
+      Closure *func = curr_func(L);// 获取当前函数
+      sethvalue(L, &L->env, func->c.env);// 将当前函数的环境变量赋值给整个lua_State的环境变量
       return &L->env;
     } // 这些索引值都比较大，lua栈限定了函数的栈尺寸，一般不会有这么大的索引
     case LUA_GLOBALSINDEX: return gt(L); // -10002 返回该Lua_State的l_gt表
-    default: {
-      Closure *func = curr_func(L);
-      idx = LUA_GLOBALSINDEX - idx;
-      return (idx <= func->c.nupvalues)
+    default: {	// 取upvalue
+      Closure *func = curr_func(L);// 获取当前函数
+      idx = LUA_GLOBALSINDEX - idx;// 计算索引
+      return (idx <= func->c.nupvalues)// 取upvalue值
                 ? &func->c.upvalue[idx-1]
                 : cast(TValue *, luaO_nilobject);
     }
@@ -583,8 +583,8 @@ LUA_API void lua_createtable (lua_State *L, int narray, int nrec) {
   lua_unlock(L);
 }
 
-
-LUA_API int lua_getmetatable (lua_State *L, int objindex) {
+// Table和userdata中都包含一个metatable域，对应元表，而基本类型的元表保存在global_State的mt中
+LUA_API int lua_getmetatable (lua_State *L, int objindex) {	// 返回当前值的元表
   const TValue *obj;
   Table *mt = NULL;
   int res;

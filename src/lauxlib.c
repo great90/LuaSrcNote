@@ -108,25 +108,25 @@ LUALIB_API int luaL_checkoption (lua_State *L, int narg, const char *def,
                        lua_pushfstring(L, "invalid option " LUA_QS, name));
 }
 
-
+// 在C中创建一个元表，lua中的元表保存在注册表中
 LUALIB_API int luaL_newmetatable (lua_State *L, const char *tname) {
-  lua_getfield(L, LUA_REGISTRYINDEX, tname);  /* get registry.name */
-  if (!lua_isnil(L, -1))  /* name already in use? */
+  lua_getfield(L, LUA_REGISTRYINDEX, tname);  /* get registry.name */ // 从注册表中获取key为tname的元表
+  if (!lua_isnil(L, -1))  /* name already in use? */// 如果该元表已存在而直接返回
     return 0;  /* leave previous value on top, but return 0 */
   lua_pop(L, 1);
   lua_newtable(L);  /* create metatable */
   lua_pushvalue(L, -1);
-  lua_setfield(L, LUA_REGISTRYINDEX, tname);  /* registry.name = metatable */
+  lua_setfield(L, LUA_REGISTRYINDEX, tname);  /* registry.name = metatable */ // 设置注册表中的对应的元表
   return 1;
 }
 
-
+// 检测栈上的userdata的元表是否和指定的元表匹配
 LUALIB_API void *luaL_checkudata (lua_State *L, int ud, const char *tname) {
   void *p = lua_touserdata(L, ud);
   if (p != NULL) {  /* value is a userdata? */
-    if (lua_getmetatable(L, ud)) {  /* does it have a metatable? */
-      lua_getfield(L, LUA_REGISTRYINDEX, tname);  /* get correct metatable */
-      if (lua_rawequal(L, -1, -2)) {  /* does it have the correct mt? */
+    if (lua_getmetatable(L, ud)) {  /* does it have a metatable? */// 如果存在元表则在栈顶
+      lua_getfield(L, LUA_REGISTRYINDEX, tname);  /* get correct metatable */// 取出注册表中的元表放到栈顶
+      if (lua_rawequal(L, -1, -2)) {  /* does it have the correct mt? */// 比较udata的元表是否和注册表的元表相同
         lua_pop(L, 2);  /* remove both metatables */
         return p;
       }
@@ -257,14 +257,14 @@ LUALIB_API void luaI_openlib (lua_State *L, const char *libname,
     lua_remove(L, -2);  /* remove _LOADED table */
     lua_insert(L, -(nup+1));  /* move library table to below upvalues */
   }
-  for (; l->name; l++) {
+  for (; l->name; l++) { // 遍历模块内的所有函数
     int i;
     for (i=0; i<nup; i++)  /* copy upvalues to the top */
       lua_pushvalue(L, -nup);
-    lua_pushcclosure(L, l->func, nup);
+    lua_pushcclosure(L, l->func, nup); //将函数压入栈，最终会把当前state的env赋值给新建的closure，也就是说最终模块内的所有函数都会共享当前的state的env
     lua_setfield(L, -(nup+2), l->name);
   }
-  lua_pop(L, nup);  /* remove upvalues */
+  lua_pop(L, nup);  /* remove upvalues */// 移除(跳过)upvalue
 }
 
 
@@ -477,36 +477,37 @@ LUALIB_API void luaL_buffinit (lua_State *L, luaL_Buffer *B) {
 
 /* }====================================================== */
 
-
+// lua的所有值保存在栈上，由lua进行管理，存取只能通过栈来存取。为了能够在c层保存一个lua的值的指针，提供了luaL_ref这个函数，调用该函数前栈顶保存的是需要引用的值
 LUALIB_API int luaL_ref (lua_State *L, int t) {
   int ref;
   t = abs_index(L, t);
-  if (lua_isnil(L, -1)) {
+  if (lua_isnil(L, -1)) {	// 当要引用的值是nil时，直接返回LUA_REFNIL常量，不会创建新的引用
     lua_pop(L, 1);  /* remove from stack */
     return LUA_REFNIL;  /* `nil' has a unique fixed reference */
-  }
-  lua_rawgeti(L, t, FREELIST_REF);  /* get first free element */
+  }	// FREELIST_REF=0
+  lua_rawgeti(L, t, FREELIST_REF);  /* get first free element */// 获取t[FREELIST_REF] 注册表中值为FREELIST_REF的key，保存的是最后一次unref掉的key
+  // 在注册表中key是不能重复的，因此这里的key的选择是通过注册表这个table的大小来做key的，而这里每次unref之后我们通过设置t[FREELIST_REF]的值为上一次被unref掉的引用的key。这样当我们再次需要引用的时候，我们就不需要增长table的大小并且也不需要再次计算key，而是直接将上一次被unref掉得key返回就可以了
   ref = (int)lua_tointeger(L, -1);  /* ref = t[FREELIST_REF] */
   lua_pop(L, 1);  /* remove it from stack */
-  if (ref != 0) {  /* any free element? */
+  if (ref != 0) {  /* any free element? */// 存在被unref的key
     lua_rawgeti(L, t, ref);  /* remove it from list */
-    lua_rawseti(L, t, FREELIST_REF);  /* (t[FREELIST_REF] = t[ref]) */
+    lua_rawseti(L, t, FREELIST_REF);  /* (t[FREELIST_REF] = t[ref]) */// 上上一次被unref掉得ref的key是被保存在t[ref]
   }
   else {  /* no free elements */
-    ref = (int)lua_objlen(L, t);
+    ref = (int)lua_objlen(L, t);// 通过注册表的大小来得到对应的key
     ref++;  /* create new reference */
   }
-  lua_rawseti(L, t, ref);
+  lua_rawseti(L, t, ref); // 设置t[ref]=value
   return ref;
 }
-
+// 如果要使用注册表的话，尽量不要使用数字类型的key，不然的话就很容易和引用系统冲突
 
 LUALIB_API void luaL_unref (lua_State *L, int t, int ref) {
   if (ref >= 0) {
     t = abs_index(L, t);
-    lua_rawgeti(L, t, FREELIST_REF);
-    lua_rawseti(L, t, ref);  /* t[ref] = t[FREELIST_REF] */
-    lua_pushinteger(L, ref);
+    lua_rawgeti(L, t, FREELIST_REF);// 获取t[FREELIST_REF]
+    lua_rawseti(L, t, ref);  /* t[ref] = t[FREELIST_REF] */// 如果再次unref的话t[ref]就保存就的是上上一次的key的值
+    lua_pushinteger(L, ref); // 形成一个隐含的以FREELIST_REF为头结点的链表，节点中的值即为下一个节点的位置
     lua_rawseti(L, t, FREELIST_REF);  /* t[FREELIST_REF] = ref */
   }
 }
@@ -518,7 +519,7 @@ LUALIB_API void luaL_unref (lua_State *L, int t, int ref) {
 ** Load functions
 ** =======================================================
 */
-
+// 表示一个load file
 typedef struct LoadF {
   int extraline;
   FILE *f;
@@ -548,36 +549,36 @@ static int errfile (lua_State *L, const char *what, int fnameindex) {
   return LUA_ERRFILE;
 }
 
-
+// 加载一个lua文件
 LUALIB_API int luaL_loadfile (lua_State *L, const char *filename) {
   LoadF lf;
   int status, readstatus;
   int c;
   int fnameindex = lua_gettop(L) + 1;  /* index of filename on the stack */
   lf.extraline = 0;
-  if (filename == NULL) {
+  if (filename == NULL) {// 默认标准输入
     lua_pushliteral(L, "=stdin");
     lf.f = stdin;
   }
   else {
     lua_pushfstring(L, "@%s", filename);
-    lf.f = fopen(filename, "r");
-    if (lf.f == NULL) return errfile(L, "open", fnameindex);
+    lf.f = fopen(filename, "r");// 打开文件
+    if (lf.f == NULL) return errfile(L, "open", fnameindex);// 打开失败
   }
   c = getc(lf.f);
-  if (c == '#') {  /* Unix exec. file? */
+  if (c == '#') {  /* Unix exec. file? */// unix注释
     lf.extraline = 1;
     while ((c = getc(lf.f)) != EOF && c != '\n') ;  /* skip first line */
     if (c == '\n') c = getc(lf.f);
-  }
-  if (c == LUA_SIGNATURE[0] && filename) {  /* binary file? */
+  }		// LUA_SIGNATURE	"\033Lua"
+  if (c == LUA_SIGNATURE[0] && filename) {  /* binary file? */// lua字节码文件
     lf.f = freopen(filename, "rb", lf.f);  /* reopen in binary mode */
     if (lf.f == NULL) return errfile(L, "reopen", fnameindex);
     /* skip eventual `#!...' */
    while ((c = getc(lf.f)) != EOF && c != LUA_SIGNATURE[0]) ;
     lf.extraline = 0;
   }
-  ungetc(c, lf.f);
+  ungetc(c, lf.f);	// 把一个字符退回到输入流中
   status = lua_load(L, getF, &lf, lua_tostring(L, -1));
   readstatus = ferror(lf.f);
   if (filename) fclose(lf.f);  /* close file (even in case of errors) */

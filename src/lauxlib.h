@@ -158,7 +158,7 @@ LUALIB_API void (luaL_pushresult) (luaL_Buffer *B);
 /* pre-defined references */
 #define LUA_NOREF       (-2)
 #define LUA_REFNIL      (-1)
-
+// 引用是在C层保存的lua值对象 引用是通过传递LUA_REGISTRYINDEX给luaL_ref函数实现的，可以看出引用是全局的，保存在注册表中的
 #define lua_ref(L,lock) ((lock) ? luaL_ref(L, LUA_REGISTRYINDEX) : \
       (lua_pushstring(L, "unlocked references are obsolete"), lua_error(L), 0))
 

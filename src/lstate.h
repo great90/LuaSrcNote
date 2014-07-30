@@ -64,7 +64,7 @@ typedef struct CallInfo {
 
 /*
 ** `global state', shared by all threads of this state
-*/ // 全局状态，被多个线程共享
+*/ // 全局状态，被多个线程共享 主要包含了gc相关的东西
 typedef struct global_State {
   stringtable strt;  /* hash table for strings */ // 专门用于存放字符串的全局hash数组
   lua_Alloc frealloc;  /* function to reallocate memory */// 内存分配函数
@@ -96,19 +96,23 @@ typedef struct global_State {
 
 /*
 ** `per thread' state
-*/ // 单个线程状态 typedef TValue *StkId
+*/ // 单个线程状态 typedef TValue *StkId lua_state表示一个lua虚拟机，它是per-thread的，也就是一个协程
 struct lua_State {
   CommonHeader;
-  lu_byte status;	// 线程脚本的状态，见Lua.h L42
-  StkId top;  /* first free slot in the stack */// 指向当前线程栈的栈顶指针
+  // 栈相关
+  StkId top;  /* first free slot in the stack */// 指向当前线程栈的栈顶指针，指向栈上的第一个空闲的slot
   StkId base;  /* base of current function */// 指向当前函数运行的相对基位置，参考闭包
+  StkId stack_last;  /* last free slot in the stack */// 栈的实际最后一个位置（栈的长度是动态增长的） 栈上的最后一个空闲的slot
+  StkId stack;  /* stack base */// 栈底 整个栈的栈底
+
   global_State *l_G;	// 指向全局状态的指针
+  // 函数相关
+  lu_byte status;	// 线程脚本的状态，见Lua.h L42
   CallInfo *ci;  /* call info for current function */// 当前线程运行的函数调用信息
   const Instruction *savedpc;  /* `savedpc' of current function */// 函数调用前，记录上一个函数的pc位置
-  StkId stack_last;  /* last free slot in the stack */// 栈的实际最后一个位置（栈的长度是动态增长的）
-  StkId stack;  /* stack base */// 栈底
   CallInfo *end_ci;  /* points after end of ci array*/// 指向函数调用栈的栈顶
   CallInfo *base_ci;  /* array of CallInfo's */// 指向函数调用栈的栈底
+  // 需要用到的长度、大小、C嵌套数量等
   int stacksize;	// 栈的大小
   int size_ci;  /* size of array `base_ci' */// 函数调用栈的大小
   unsigned short nCcalls;  /* number of nested C calls */// 当前C函数的调用的深度
@@ -118,10 +122,13 @@ struct lua_State {
   int basehookcount;// 用户设置的出发LUA_MASKCOUNT对应的钩子函数需要执行的指令数
   int hookcount;// 与上面对应的已运行的指令数
   lua_Hook hook;// 用户注册的钩子函数
+  // 全局环境相关
   TValue l_gt;  /* table of globals */// 当前线程执行的全局环境表
   TValue env;  /* temporary place for environments */// 当前运行的环境表
+  // GC相关
   GCObject *openupval;  /* list of open upvalues in this stack */ // 当前的栈上的所有open的uvalue
   GCObject *gclist;	// 用于gc
+  // 错误处理相关
   struct lua_longjmp *errorJmp;  /* current error recover point */// 发生错误时的长跳转位置
   ptrdiff_t errfunc;  /* current error handling function (stack index) */// 用户注册的错误回调函数
 };
