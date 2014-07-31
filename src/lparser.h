@@ -33,11 +33,11 @@ typedef enum {
   VCALL,	/* info = instruction pc */
   VVARARG	/* info = instruction pc */
 } expkind;
-
+// 表达式描述
 typedef struct expdesc {
   expkind k;
   union {
-    struct { int info, aux; } s;
+    struct { int info, aux; } s; // info表示语句对应的索引(在指令数组code(proto结构体)中)或者说表示为对应constant的索引(proto的TValue *k这个数组的索引)
     lua_Number nval;
   } u;
   int t;  /* patch list of `exit when true' */
@@ -55,7 +55,7 @@ struct BlockCnt;  /* defined in lparser.c */
 
 
 /* state needed to generate code for a given function */
-typedef struct FuncState {
+typedef struct FuncState {	// 解析到的函数的状态
   Proto *f;  /* current function header */
   Table *h;  /* table to find (and reuse) elements in `k' */
   struct FuncState *prev;  /* enclosing function */

@@ -858,15 +858,15 @@ LUA_API int lua_cpcall (lua_State *L, lua_CFunction func, void *ud) {
   return status;
 }
 
-
+// 加载文件 reader:回调函数
 LUA_API int lua_load (lua_State *L, lua_Reader reader, void *data,
                       const char *chunkname) {
-  ZIO z;
+  ZIO z;// 源代码解析结构
   int status;
   lua_lock(L);
   if (!chunkname) chunkname = "?";
   luaZ_init(L, &z, reader, data);
-  status = luaD_protectedparser(L, &z, chunkname);
+  status = luaD_protectedparser(L, &z, chunkname);// 解析源代码
   lua_unlock(L);
   return status;
 }

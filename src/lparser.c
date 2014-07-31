@@ -90,7 +90,7 @@ static void check (LexState *ls, int c) {
   if (ls->t.token != c)
     error_expected(ls, c);
 }
-
+// 检测下一个token是否是期望的
 static void checknext (LexState *ls, int c) {
   check(ls, c);
   luaX_next(ls);
@@ -379,7 +379,7 @@ static void close_func (LexState *ls) {
   if (fs) anchor_token(ls);
 }
 
-
+// 解析函数 返回的是一个proto，也就是说每一个lua文件就相当于一个proto(函数)
 Proto *luaY_parser (lua_State *L, ZIO *z, Mbuffer *buff, const char *name) {
   struct LexState lexstate;
   struct FuncState funcstate;

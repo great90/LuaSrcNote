@@ -27,13 +27,13 @@
   unsigned argument.
 ===========================================================================*/
 
-
+// 3种指令
 enum OpMode {iABC, iABx, iAsBx};  /* basic instruction format */
 
 
 /*
 ** size and position of opcode arguments.
-*/
+*/// 操作码和参数的大小及位置
 #define SIZE_C		9
 #define SIZE_B		9
 #define SIZE_Bx		(SIZE_C + SIZE_B)

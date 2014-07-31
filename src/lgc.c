@@ -68,10 +68,10 @@ static void removeentry (Node *n) {
 
 static void reallymarkobject (global_State *g, GCObject *o) {
   lua_assert(iswhite(o) && !isdead(g, o));
-  white2gray(o);
-  switch (o->gch.tt) {
+  white2gray(o);// 先将白变灰
+  switch (o->gch.tt) {// 根据不同类型进行不同的操作
     case LUA_TSTRING: {
-      return;
+      return;	// 不通过gc管理
     }
     case LUA_TUSERDATA: {
       Table *mt = gco2u(o)->metatable;
@@ -161,7 +161,7 @@ static int traversetable (global_State *g, Table *h) {
   int weakvalue = 0;
   const TValue *mode;
   if (h->metatable)
-    markobject(g, h->metatable);
+    markobject(g, h->metatable);// 先标记元表
   mode = gfasttm(g, h->metatable, TM_MODE);
   if (mode && ttisstring(mode)) {  /* is there a weak mode? */
     weakkey = (strchr(svalue(mode), 'k') != NULL);
@@ -174,14 +174,14 @@ static int traversetable (global_State *g, Table *h) {
       g->weak = obj2gco(h);  /* ... so put in the appropriate list */
     }
   }
-  if (weakkey && weakvalue) return 1;
+  if (weakkey && weakvalue) return 1;// 弱表在gc之后单独处理
   if (!weakvalue) {
-    i = h->sizearray;
+    i = h->sizearray;// 处理数组部分
     while (i--)
       markvalue(g, &h->array[i]);
   }
   i = sizenode(h);
-  while (i--) {
+  while (i--) {// 处理hash部分
     Node *n = gnode(h, i);
     lua_assert(ttype(gkey(n)) != LUA_TDEADKEY || ttisnil(gval(n)));
     if (ttisnil(gval(n)))
@@ -192,7 +192,7 @@ static int traversetable (global_State *g, Table *h) {
       if (!weakvalue) markvalue(g, gval(n));
     }
   }
-  return weakkey || weakvalue;
+  return weakkey || weakvalue;// 当前的表是否处于weak模式
 }
 
 
@@ -277,15 +277,15 @@ static void traversestack (global_State *g, lua_State *l) {
 static l_mem propagatemark (global_State *g) {
   GCObject *o = g->gray;
   lua_assert(isgray(o));
-  gray2black(o);
+  gray2black(o);// 先把当前的对象节点标记为黑色
   switch (o->gch.tt) {
     case LUA_TTABLE: {
       Table *h = gco2h(o);
       g->gray = h->gclist;
       if (traversetable(g, h))  /* table is weak? */
-        black2gray(o);  /* keep it gray */
+        black2gray(o);  /* keep it gray */// weak table后续会统一处理，也就是脱离lua的gc
       return sizeof(Table) + sizeof(TValue) * h->sizearray +
-                             sizeof(Node) * sizenode(h);
+                             sizeof(Node) * sizenode(h);// 返回标记的内存大小
     }
     case LUA_TFUNCTION: {
       Closure *cl = gco2cl(o);
@@ -508,7 +508,7 @@ static void markroot (lua_State *L) {
   markvalue(g, gt(g->mainthread));
   markvalue(g, registry(L));
   markmt(g);
-  g->gcstate = GCSpropagate;
+  g->gcstate = GCSpropagate;// 进入下一状态
 }
 
 
@@ -521,7 +521,13 @@ static void remarkupvals (global_State *g) {
   }
 }
 
-
+/* 这个函数之所以叫atomic，是因为在这个状态下lua的标记是不会被打断的，它最终会做一次清理，
+   也就是对于在标记期间有改变的对象再次进行mark。这里涉及到一个barrier的概念，之所以要有
+   barrier，是由于lua的gc是分步的，因此在进入最终的清理状态之前，有可能被标记的对象的
+   颜色已经改变(比如本来是白色，可是我们第一次扫描之后，它又被使用了，此时自然就变成灰色了，
+   或者是已经被染色为黑色了，可是对象后续又没有对应的引用了),在这些情况下，都会将颜色染回灰
+   色，要么是barrier fwd(white->gray),要么是 barrier back(black->gray)
+*/
 static void atomic (lua_State *L) {
   global_State *g = G(L);
   size_t udsize;  /* total size of userdata to be finalized */
@@ -552,24 +558,24 @@ static void atomic (lua_State *L) {
   g->estimate = g->totalbytes - udsize;  /* first estimate */
 }
 
-
+// lua的gc状态机，执行顺序和下面的状态的从大到小开始一致
 static l_mem singlestep (lua_State *L) {
   global_State *g = G(L);
   /*lua_checkmemory(L);*/
   switch (g->gcstate) {
-    case GCSpause: {
-      markroot(L);  /* start a new collection */
+    case GCSpause: {// 初始状态
+      markroot(L);  /* start a new collection */// 主要就是标记主线程对象(也就是从白色染成灰色)
       return 0;
     }
-    case GCSpropagate: {
-      if (g->gray)
+    case GCSpropagate: {// 这个状态也是一个标记过程，并且会被进入多次，也就是分布迭代
+      if (g->gray)// 如果gray对象一直存在的话，反复调用propagatemark函数，等所有的gray对象都被标记了，就会进入atomic函数处理
         return propagatemark(g);
       else {  /* no more `gray' objects */
-        atomic(L);  /* finish mark phase */
+        atomic(L);  /* finish mark phase */// 原子操作
         return 0;
       }
     }
-    case GCSsweepstring: {
+    case GCSsweepstring: {// 清理字符串的阶段
       lu_mem old = g->totalbytes;
       sweepwholelist(L, &g->strt.hash[g->sweepstrgc++]);
       if (g->sweepstrgc >= g->strt.size)  /* nothing more to sweep? */

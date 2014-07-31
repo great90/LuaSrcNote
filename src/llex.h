@@ -45,19 +45,19 @@ typedef union {
   TString *ts;
 } SemInfo;  /* semantics information */
 
-
+// 保存解析出来的token
 typedef struct Token {
   int token;
-  SemInfo seminfo;
+  SemInfo seminfo;// 保存经过词法解析后的词(不包括运算符以及[]等),只包括字母以及数字
 } Token;
 
-
+// 核心的解析结构，用于解析期间保存状态
 typedef struct LexState {
   int current;  /* current character (charint) */
   int linenumber;  /* input line counter */
   int lastline;  /* line of last token `consumed' */
   Token t;  /* current token */
-  Token lookahead;  /* look ahead token */
+  Token lookahead;  /* look ahead token */// 前一个token
   struct FuncState *fs;  /* `FuncState' is private to the parser */
   struct lua_State *L;
   ZIO *z;  /* input stream */
