@@ -486,7 +486,7 @@ struct SParser {  /* data to `f_parser' */
   Mbuffer buff;  /* buffer to be used by the scanner */
   const char *name;
 };
-
+// 对Lua代码进行分析的入口函数
 static void f_parser (lua_State *L, void *ud) {
   int i;
   Proto *tf;

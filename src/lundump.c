@@ -184,14 +184,14 @@ static void LoadHeader(LoadState* S)
 {
  char h[LUAC_HEADERSIZE];
  char s[LUAC_HEADERSIZE];
- luaU_header(h);
+ luaU_header(h);	// 检查函数头部
  LoadBlock(S,s,LUAC_HEADERSIZE);
  IF (memcmp(h,s,LUAC_HEADERSIZE)!=0, "bad header");
 }
 
 /*
 ** load precompiled chunk
-*/
+*/// 加载一个预编译后的代码块
 Proto* luaU_undump (lua_State* L, ZIO* Z, Mbuffer* buff, const char* name)
 {
  LoadState S;
