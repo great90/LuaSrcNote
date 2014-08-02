@@ -86,7 +86,7 @@ int luaO_rawequalObj (const TValue *t1, const TValue *t2) {
   }
 }
 
-
+// 将字符串转换为数字保存在result中，成功返回1，失败返回0 支持十六进制处理
 int luaO_str2d (const char *s, lua_Number *result) {
   char *endptr;
   *result = lua_str2number(s, &endptr);

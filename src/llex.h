@@ -13,7 +13,7 @@
 
 #define FIRST_RESERVED	257
 
-/* maximum length of a reserved word */
+/* maximum length of a reserved word */// 最长的关键字
 #define TOKEN_LEN	(sizeof("function")/sizeof(char))
 
 
@@ -39,7 +39,7 @@ enum RESERVED {
 /* array with token `names' */
 LUAI_DATA const char *const luaX_tokens [];
 
-
+// 记录语义信息 数字或字符串
 typedef union {
   lua_Number r;
   TString *ts;
@@ -53,17 +53,17 @@ typedef struct Token {
 
 // 核心的解析结构，用于解析期间保存状态
 typedef struct LexState {
-  int current;  /* current character (charint) */
-  int linenumber;  /* input line counter */
-  int lastline;  /* line of last token `consumed' */
-  Token t;  /* current token */
-  Token lookahead;  /* look ahead token */// 前一个token
-  struct FuncState *fs;  /* `FuncState' is private to the parser */
-  struct lua_State *L;
-  ZIO *z;  /* input stream */
-  Mbuffer *buff;  /* buffer for tokens */
-  TString *source;  /* current source name */
-  char decpoint;  /* locale decimal point */
+  int current;  /* current character (charint) *///指示当前的字符 (相对于文件开头的偏移位置)，可以看做一个指针，实际是一个索引
+  int linenumber;  /* input line counter *///指示当前解析器的current指针的行位置
+  int lastline;  /* line of last token `consumed' */// 当前文件里面的最后一个有作用的记号所在的行
+  Token t;  /* current token */// 当前的记号
+  Token lookahead;  /* look ahead token */// 下一个 (待分析的) 记号
+  struct FuncState *fs;  /* `FuncState' is private to the parser */// 函数状态指针
+  struct lua_State *L;//状态机指针
+  ZIO *z;  /* input stream *///输入流
+  Mbuffer *buff;  /* buffer for tokens */// 存储所有记号的一个缓存
+  TString *source;  /* current source name */// 当前源码的的名字
+  char decpoint;  /* locale decimal point */// 小数点符号
 } LexState;
 
 

@@ -5,7 +5,7 @@
 */
 
 
-#include <signal.h>
+#include <signal.h> // ANSI的标准库
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,24 +21,24 @@
 
 static lua_State *globalL = NULL;
 
-static const char *progname = LUA_PROGNAME;
+static const char *progname = LUA_PROGNAME; // 当前的程序名（短名，默认为lua）， 被dotty和pmain修改，被print_usage、report和dotty读取
 
 
-
+// 在出现signal中断时进行出错处理的lua钩子
 static void lstop (lua_State *L, lua_Debug *ar) {
   (void)ar;  /* unused arg. */
   lua_sethook(L, NULL, 0, 0);
-  luaL_error(L, "interrupted!");
+  luaL_error(L, "interrupted!");// 简单地输出interrupted!
 }
 
-
+// signal中断的处理句柄 在docall中被注册
 static void laction (int i) {
   signal(i, SIG_DFL); /* if another SIGINT happens before lstop,
-                              terminate process (default action) */
-  lua_sethook(globalL, lstop, LUA_MASKCALL | LUA_MASKRET | LUA_MASKCOUNT, 1);
+                              terminate process (default action) */ // 确保如果在lstop之前出现其他SIGINT，就直接结束进程（默认动作）
+  lua_sethook(globalL, lstop, LUA_MASKCALL | LUA_MASKRET | LUA_MASKCOUNT, 1);//用lua_sethook挂钩子lstop
 }
 
-
+//在stderr控制台输出中输出lua解析器的用法
 static void print_usage (void) {
   fprintf(stderr,
   "usage: %s [options] [script [args]].\n"
@@ -54,14 +54,14 @@ static void print_usage (void) {
   fflush(stderr);
 }
 
-
+// 公共的信息输出函数
 static void l_message (const char *pname, const char *msg) {
   if (pname) fprintf(stderr, "%s: ", pname);
   fprintf(stderr, "%s\n", msg);
   fflush(stderr);
 }
 
-
+// 运行完pmain后取出栈顶的出错信息然后用l_message输出
 static int report (lua_State *L, int status) {
   if (status && !lua_isnil(L, -1)) {
     const char *msg = lua_tostring(L, -1);
@@ -72,10 +72,10 @@ static int report (lua_State *L, int status) {
   return status;
 }
 
-
+// 出错处理的C函数，间接调用Lua标准库里的debug.traceback函数
 static int traceback (lua_State *L) {
-  if (!lua_isstring(L, 1))  /* 'message' not a string? */
-    return 1;  /* keep it intact */
+  if (!lua_isstring(L, 1))  /* 'message' not a string? */// 判断栈顶是不是出错信息的字符串message
+    return 1;  /* keep it intact */// 不是则直接返回
   lua_getfield(L, LUA_GLOBALSINDEX, "debug");
   if (!lua_istable(L, -1)) {
     lua_pop(L, 1);
@@ -88,18 +88,18 @@ static int traceback (lua_State *L) {
   }
   lua_pushvalue(L, 1);  /* pass error message */
   lua_pushinteger(L, 2);  /* skip this function and traceback */
-  lua_call(L, 2, 1);  /* call debug.traceback */
+  lua_call(L, 2, 1);  /* call debug.traceback */// 调用debug.traceback(message, 2)输出当前Lua状态机的堆栈回溯
   return 1;
 }
 
-
+// Lua保护模式运行VM（已经载入脚本后）
 static int docall (lua_State *L, int narg, int clear) {
   int status;
   int base = lua_gettop(L) - narg;  /* function index */
   lua_pushcfunction(L, traceback);  /* push traceback function */
   lua_insert(L, base);  /* put it under chunk and args */
-  signal(SIGINT, laction);
-  status = lua_pcall(L, narg, (clear ? 0 : LUA_MULTRET), base);
+  signal(SIGINT, laction);// 确保在出错时Lua状态机调用traceback
+  status = lua_pcall(L, narg, (clear ? 0 : LUA_MULTRET), base);// 启动虚拟机
   signal(SIGINT, SIG_DFL);
   lua_remove(L, base);  /* remove traceback function */
   /* force a complete garbage collection in case of errors */
@@ -107,12 +107,12 @@ static int docall (lua_State *L, int narg, int clear) {
   return status;
 }
 
-
+// 输出版本信息
 static void print_version (void) {
   l_message(NULL, LUA_RELEASE "  " LUA_COPYRIGHT);
 }
 
-
+// 把argv字符串数组压入L栈中，变成一个Lua表
 static int getargs (lua_State *L, char **argv, int n) {
   int narg;
   int i;
@@ -130,38 +130,38 @@ static int getargs (lua_State *L, char **argv, int n) {
   return narg;
 }
 
-
+// 执行Lua脚本文件
 static int dofile (lua_State *L, const char *name) {
-  int status = luaL_loadfile(L, name) || docall(L, 0, 1);
-  return report(L, status);
+  int status = luaL_loadfile(L, name) || docall(L, 0, 1);//luaL_loadfile加载（编译）文件， ocall执行
+  return report(L, status);// 报告返回的状态值
 }
 
-
+// 执行Lua脚本字符串
 static int dostring (lua_State *L, const char *s, const char *name) {
   int status = luaL_loadbuffer(L, s, strlen(s), name) || docall(L, 0, 1);
   return report(L, status);
 }
 
-
+// 用Lua标准库的require函数加载脚本
 static int dolibrary (lua_State *L, const char *name) {
   lua_getglobal(L, "require");
   lua_pushstring(L, name);
   return report(L, docall(L, 1, 1));
 }
 
-
+// 从Lua全局变量_PROMPT和_PROMPT2获取首行或次行的命令行提示符
 static const char *get_prompt (lua_State *L, int firstline) {
   const char *p;
   lua_getfield(L, LUA_GLOBALSINDEX, firstline ? "_PROMPT" : "_PROMPT2");
-  p = lua_tostring(L, -1);
+  p = lua_tostring(L, -1);// 未定义时p为NULL，返回默认值">"或">>"
   if (p == NULL) p = (firstline ? LUA_PROMPT : LUA_PROMPT2);
   lua_pop(L, 1);  /* remove global */
   return p;
 }
 
-
+// 状态机出现语法出错后判断是否遇到文件尾
 static int incomplete (lua_State *L, int status) {
-  if (status == LUA_ERRSYNTAX) {
+  if (status == LUA_ERRSYNTAX) {// 语法分析错误
     size_t lmsg;
     const char *msg = lua_tolstring(L, -1, &lmsg);
     const char *tp = msg + lmsg - (sizeof(LUA_QL("<eof>")) - 1);
@@ -173,7 +173,7 @@ static int incomplete (lua_State *L, int status) {
   return 0;  /* else... */
 }
 
-
+// 交互模式，读取stdin的一行，无循环
 static int pushline (lua_State *L, int firstline) {
   char buffer[LUA_MAXINPUT];
   char *b = buffer;
@@ -192,7 +192,7 @@ static int pushline (lua_State *L, int firstline) {
   return 1;
 }
 
-
+// 交互模式，读入stdin的一行，然后循环读取余下未输入完的内容
 static int loadline (lua_State *L) {
   int status;
   lua_settop(L, 0);
@@ -212,18 +212,18 @@ static int loadline (lua_State *L) {
   return status;
 }
 
-
+// 进入交互模式
 static void dotty (lua_State *L) {
   int status;
   const char *oldprogname = progname;
   progname = NULL;
-  while ((status = loadline(L)) != -1) {
-    if (status == 0) status = docall(L, 0, 0);
+  while ((status = loadline(L)) != -1) {// 读取一行
+    if (status == 0) status = docall(L, 0, 0);// 执行
     report(L, status);
     if (status == 0 && lua_gettop(L) > 0) {  /* any result to print? */
       lua_getglobal(L, "print");
-      lua_insert(L, 1);
-      if (lua_pcall(L, lua_gettop(L)-1, 0, 0) != 0)
+      lua_insert(L, 1);// 将print函数加入返回值之前
+      if (lua_pcall(L, lua_gettop(L)-1, 0, 0) != 0)// 调用print打印结果
         l_message(progname, lua_pushfstring(L,
                                "error calling " LUA_QL("print") " (%s)",
                                lua_tostring(L, -1)));
@@ -235,7 +235,7 @@ static void dotty (lua_State *L) {
   progname = oldprogname;
 }
 
-
+// 注入Lua全局变量arg，然后执行脚本或执行stdin的输入内容
 static int handle_script (lua_State *L, char **argv, int n) {
   int status;
   const char *fname;
@@ -257,7 +257,7 @@ static int handle_script (lua_State *L, char **argv, int n) {
 /* check that argument has no extra characters at the end */
 #define notail(x)	{if ((x)[2] != '\0') return -1;}
 
-
+// 第一次命令行扫描，获取大部分选项
 static int collectargs (char **argv, int *pi, int *pv, int *pe) {
   int i;
   for (i = 1; argv[i] != NULL; i++) {
@@ -290,7 +290,7 @@ static int collectargs (char **argv, int *pi, int *pv, int *pe) {
   return 0;
 }
 
-
+// 第二次命令行扫描，用Lua虚拟机执行-e（字符串）或-l（文件）的内容
 static int runargs (lua_State *L, char **argv, int n) {
   int i;
   for (i = 1; i < n; i++) {
@@ -319,7 +319,7 @@ static int runargs (lua_State *L, char **argv, int n) {
   return 0;
 }
 
-
+// 读取环境变量LUA_INIT指定的脚本（@开头）或命令
 static int handle_luainit (lua_State *L) {
   const char *init = getenv(LUA_INIT);
   if (init == NULL) return 0;  /* status OK */
@@ -333,7 +333,7 @@ static int handle_luainit (lua_State *L) {
 struct Smain {
   int argc;
   char **argv;
-  int status;
+  int status;// 保存pmain的返回值
 };
 
 
@@ -344,9 +344,9 @@ static int pmain (lua_State *L) {
   int has_i = 0, has_v = 0, has_e = 0;
   globalL = L;
   if (argv[0] && argv[0][0]) progname = argv[0];
-  lua_gc(L, LUA_GCSTOP, 0);  /* stop collector during initialization */
-  luaL_openlibs(L);  /* open libraries */
-  lua_gc(L, LUA_GCRESTART, 0);
+  lua_gc(L, LUA_GCSTOP, 0);  /* stop collector during initialization */// 关闭GC
+  luaL_openlibs(L);  /* open libraries */// 打开所有标准库（可能使用标准库里的debug和require）
+  lua_gc(L, LUA_GCRESTART, 0);// 执行GC
   s->status = handle_luainit(L);
   if (s->status != 0) return 0;
   script = collectargs(argv, &has_i, &has_v, &has_e);
@@ -384,7 +384,7 @@ int main (int argc, char **argv) {
   }
   s.argc = argc;
   s.argv = argv;
-  status = lua_cpcall(L, &pmain, &s);
+  status = lua_cpcall(L, &pmain, &s);// 在保护模式下调用pmain
   report(L, status);
   lua_close(L);
   return (status || s.status) ? EXIT_FAILURE : EXIT_SUCCESS;

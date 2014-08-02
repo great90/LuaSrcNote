@@ -24,7 +24,7 @@
 #include "lzio.h"
 
 
-
+// 获取当前输入流的下一个字符
 #define next(ls) (ls->current = zgetc(ls->z))
 
 
@@ -33,7 +33,7 @@
 #define currIsNewline(ls)	(ls->current == '\n' || ls->current == '\r')
 
 
-/* ORDER RESERVED */
+/* ORDER RESERVED *///真正的保留字符号与llex.h中的RESERVED枚举类型一一对应
 const char *const luaX_tokens [] = {
     "and", "break", "do", "else", "elseif",
     "end", "false", "for", "function", "if",
@@ -47,7 +47,7 @@ const char *const luaX_tokens [] = {
 
 #define save_and_next(ls) (save(ls, ls->current), next(ls))
 
-
+// 给Lua Lex状态机的缓存中添加一个字符，会自动进行内存的扩充，按2倍方式扩充
 static void save (LexState *ls, int c) {
   Mbuffer *b = ls->buff;
   if (b->n + 1 > b->buffsize) {
@@ -74,18 +74,18 @@ void luaX_init (lua_State *L) {
 
 #define MAXSRC          80
 
-
+// 将以数值形式表示的记号序号转换成相应的字符或字符串
 const char *luaX_token2str (LexState *ls, int token) {
-  if (token < FIRST_RESERVED) {
+  if (token < FIRST_RESERVED) {// ASCII字符
     lua_assert(token == cast(unsigned char, token));
-    return (iscntrl(token)) ? luaO_pushfstring(ls->L, "char(%d)", token) :
+    return (iscntrl(token)) ? luaO_pushfstring(ls->L, "char(%d)", token) : // 控制字符
                               luaO_pushfstring(ls->L, "%c", token);
   }
   else
-    return luaX_tokens[token-FIRST_RESERVED];
+    return luaX_tokens[token-FIRST_RESERVED];// 保留字
 }
 
-
+// 分析所得到的token，是不是标识符（也就是变量名）(name)，常量字符串(string)，常量数字(number)，如果是，则加入串结束符，并返回这个缓存内容，以便做进一步的搜集判断工作
 static const char *txtToken (LexState *ls, int token) {
   switch (token) {
     case TK_NAME:
@@ -123,13 +123,13 @@ TString *luaX_newstring (LexState *ls, const char *str, size_t l) {
   return ts;
 }
 
-
+// 增加词法分析器状态机的行数状态
 static void inclinenumber (LexState *ls) {
   int old = ls->current;
   lua_assert(currIsNewline(ls));
-  next(ls);  /* skip `\n' or `\r' */
+  next(ls);  /* skip `\n' or `\r' */// 跳过\n及\r
   if (currIsNewline(ls) && ls->current != old)
-    next(ls);  /* skip `\n\r' or `\r\n' */
+    next(ls);  /* skip `\n\r' or `\r\n' */// 跳过\n\r及\r\n
   if (++ls->linenumber >= MAX_INT)
     luaX_syntaxerror(ls, "chunk has too many lines");
 }
@@ -157,15 +157,15 @@ void luaX_setinput (lua_State *L, LexState *ls, ZIO *z, TString *source) {
 */
 
 
-
+// 检查当前字符是否在一个预定字符集set中，不在就直接返回，在就保存当前字符，并检查下一个字符
 static int check_next (LexState *ls, const char *set) {
-  if (!strchr(set, ls->current))
+  if (!strchr(set, ls->current))// strchr查找某字符在字符串中(包括末尾的NULL)首次出现的位置，没有找到则返回NULL
     return 0;
   save_and_next(ls);
   return 1;
 }
 
-
+// 将状态机中的字符缓冲中所有的from字符替换为to字符
 static void buffreplace (LexState *ls, char from, char to) {
   size_t n = luaZ_bufflen(ls->buff);
   char *p = luaZ_buffer(ls->buff);
@@ -188,7 +188,7 @@ static void trydecpoint (LexState *ls, SemInfo *seminfo) {
 }
 
 
-/* LUA_NUMBER */
+/* LUA_NUMBER */// 将一个数字字串 (含十六进制和科学计数情况)转换成数字存储
 static void read_numeral (LexState *ls, SemInfo *seminfo) {
   lua_assert(isdigit(ls->current));
   do {
@@ -199,12 +199,12 @@ static void read_numeral (LexState *ls, SemInfo *seminfo) {
   while (isalnum(ls->current) || ls->current == '_')
     save_and_next(ls);
   save(ls, '\0');
-  buffreplace(ls, '.', ls->decpoint);  /* follow locale for decimal point */
-  if (!luaO_str2d(luaZ_buffer(ls->buff), &seminfo->r))  /* format error? */
+  buffreplace(ls, '.', ls->decpoint);  /* follow locale for decimal point */// 本地化 在有些国家，小数点不是用.号表示的
+  if (!luaO_str2d(luaZ_buffer(ls->buff), &seminfo->r))  /* format error? */// 将buff中的内容转换成数字(含十六进制处理)，存入seminfo->r中
     trydecpoint(ls, seminfo); /* try to update decimal point separator */
 }
 
-
+// 跳过[====[及]====]中间的那些等号并返回等号的个数
 static int skip_sep (LexState *ls) {
   int count = 0;
   int s = ls->current;
@@ -217,7 +217,7 @@ static int skip_sep (LexState *ls) {
   return (ls->current == s) ? count : (-count) - 1;
 }
 
-
+// 读取一个长字符串(可跨行)
 static void read_long_string (LexState *ls, SemInfo *seminfo, int sep) {
   int cont = 0;
   (void)(cont);  /* avoid warnings when `cont' is not used */
@@ -268,8 +268,8 @@ static void read_long_string (LexState *ls, SemInfo *seminfo, int sep) {
     }
   } endloop:
   if (seminfo)
-    seminfo->ts = luaX_newstring(ls, luaZ_buffer(ls->buff) + (2 + sep),
-                                     luaZ_bufflen(ls->buff) - 2*(2 + sep));
+    seminfo->ts = luaX_newstring(ls, luaZ_buffer(ls->buff) + (2 + sep),	// 跳过[[及其中间的等号
+                                     luaZ_bufflen(ls->buff) - 2*(2 + sep));// 实际字符串的长度
 }
 
 

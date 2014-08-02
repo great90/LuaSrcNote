@@ -273,7 +273,7 @@
 #if defined(LUA_USE_READLINE)
 #include <stdio.h>
 #include <readline/readline.h>
-#include <readline/history.h>
+#include <readline/history.h> // 这两个头文件是开源的跨平台程序库GNU readline，提供了交互式的文本编辑功能
 #define lua_readline(L,b,p)	((void)L, ((b)=readline(p)) != NULL)
 #define lua_saveline(L,idx) \
 	if (lua_strlen(L,idx) > 0)  /* non-empty line? */ \
