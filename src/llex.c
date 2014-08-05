@@ -113,11 +113,11 @@ void luaX_syntaxerror (LexState *ls, const char *msg) {
   luaX_lexerror(ls, msg, ls->t.token);
 }
 
-
+// 接收外部的str创建一个lua内部的字符串
 TString *luaX_newstring (LexState *ls, const char *str, size_t l) {
   lua_State *L = ls->L;
   TString *ts = luaS_newlstr(L, str, l);
-  TValue *o = luaH_setstr(L, ls->fs->h, ts);  /* entry for `str' */
+  TValue *o = luaH_setstr(L, ls->fs->h, ts);  /* entry for `str' */// 将ts加入全局字符串表，并返回其索引
   if (ttisnil(o))
     setbvalue(o, 1);  /* make sure `str' will not be collected */
   return ts;
@@ -230,9 +230,9 @@ static void read_long_string (LexState *ls, SemInfo *seminfo, int sep) {
         luaX_lexerror(ls, (seminfo) ? "unfinished long string" :
                                    "unfinished long comment", TK_EOS);
         break;  /* to avoid warnings */
-#if defined(LUA_COMPAT_LSTR)
-      case '[': {
-        if (skip_sep(ls) == sep) {
+#if defined(LUA_COMPAT_LSTR) // COMPAT宏定义
+      case '[': {// 处理嵌套
+        if (skip_sep(ls) == sep) {// 同级嵌套的问题
           save_and_next(ls);  /* skip 2nd `[' */
           cont++;
 #if LUA_COMPAT_LSTR == 1
@@ -254,7 +254,7 @@ static void read_long_string (LexState *ls, SemInfo *seminfo, int sep) {
         }
         break;
       }
-      case '\n':
+      case '\n':	// 多行字符串里面忽略了转义的情况
       case '\r': {
         save(ls, '\n');
         inclinenumber(ls);
@@ -272,7 +272,7 @@ static void read_long_string (LexState *ls, SemInfo *seminfo, int sep) {
                                      luaZ_bufflen(ls->buff) - 2*(2 + sep));// 实际字符串的长度
 }
 
-
+// 读取使用"或'括起来的单行字符串 del:定界符
 static void read_string (LexState *ls, int del, SemInfo *seminfo) {
   save_and_next(ls);
   while (ls->current != del) {
@@ -280,7 +280,7 @@ static void read_string (LexState *ls, int del, SemInfo *seminfo) {
       case EOZ:
         luaX_lexerror(ls, "unfinished string", TK_EOS);
         continue;  /* to avoid warnings */
-      case '\n':
+      case '\n':// 处理转义字符的情况
       case '\r':
         luaX_lexerror(ls, "unfinished string", TK_STRING);
         continue;  /* to avoid warnings */
@@ -323,9 +323,9 @@ static void read_string (LexState *ls, int del, SemInfo *seminfo) {
         save_and_next(ls);
     }
   }
-  save_and_next(ls);  /* skip delimiter */
-  seminfo->ts = luaX_newstring(ls, luaZ_buffer(ls->buff) + 1,
-                                   luaZ_bufflen(ls->buff) - 2);
+  save_and_next(ls);  /* skip delimiter */// 跳过定界符
+  seminfo->ts = luaX_newstring(ls, luaZ_buffer(ls->buff) + 1,// 跳过"或'
+                                   luaZ_bufflen(ls->buff) - 2);// 长度不计算"及'
 }
 
 /*
@@ -353,10 +353,10 @@ fieldsep ::= `,′ | `;′
 binop ::= `+′ | `-′ | `*′ | `/′ | `^′ | `%′ | `..′ | `<′ | `<=′ | `]]>′ | `>=′ | `==′ | `~=′ | and | or 
 unop ::= `-′ | not | `#′
 */
-// 词法扫描器 核心的解析方法
+// 词法扫描器 核心的解析方法	调用一次，返回一个完整的token（记号） 对于单个ASCII字符直接返回，超过一个字符的返回宏名
 static int llex (LexState *ls, SemInfo *seminfo) {
   luaZ_resetbuffer(ls->buff);
-  for (;;) {
+  for (;;) {	// 尽可能长地搜索一个记号单元
     switch (ls->current) {
       case '\n':
       case '\r': {
@@ -365,41 +365,41 @@ static int llex (LexState *ls, SemInfo *seminfo) {
       }
       case '-': {
         next(ls);
-        if (ls->current != '-') return '-';
-        /* else is a comment */
+        if (ls->current != '-') return '-';// 下一个字符不是'-'，表示不是注释，直接返回
+        /* else is a comment */// 注释处理
         next(ls);
         if (ls->current == '[') {
           int sep = skip_sep(ls);
           luaZ_resetbuffer(ls->buff);  /* `skip_sep' may dirty the buffer */
-          if (sep >= 0) {
+          if (sep >= 0) {// 长注释
             read_long_string(ls, NULL, sep);  /* long comment */
             luaZ_resetbuffer(ls->buff);
             continue;
           }
         }
-        /* else short comment */
+        /* else short comment */// 短注释处理 一直到行尾
         while (!currIsNewline(ls) && ls->current != EOZ)
           next(ls);
-        continue;
+        continue;	// 所有注释全部略过，不处理
       }
       case '[': {
         int sep = skip_sep(ls);
-        if (sep >= 0) {
+        if (sep >= 0) {// 长字符串
           read_long_string(ls, seminfo, sep);
           return TK_STRING;
         }
-        else if (sep == -1) return '[';
+        else if (sep == -1) return '[';// 数组下标
         else luaX_lexerror(ls, "invalid long string delimiter", TK_STRING);
       }
       case '=': {
         next(ls);
-        if (ls->current != '=') return '=';
-        else { next(ls); return TK_EQ; }
+        if (ls->current != '=') return '=';	// 赋值
+        else { next(ls); return TK_EQ; }	// 等号
       }
       case '<': {
         next(ls);
-        if (ls->current != '=') return '<';
-        else { next(ls); return TK_LE; }
+        if (ls->current != '=') return '<';	// 小于符号
+        else { next(ls); return TK_LE; }	// 小于等于
       }
       case '>': {
         next(ls);
@@ -420,29 +420,29 @@ static int llex (LexState *ls, SemInfo *seminfo) {
         save_and_next(ls);
         if (check_next(ls, ".")) {
           if (check_next(ls, "."))
-            return TK_DOTS;   /* ... */
-          else return TK_CONCAT;   /* .. */
+            return TK_DOTS;   /* ... */// 变参符号
+          else return TK_CONCAT;   /* .. */// 字符串连接符
         }
-        else if (!isdigit(ls->current)) return '.';
+        else if (!isdigit(ls->current)) return '.';// 域操作符
         else {
-          read_numeral(ls, seminfo);
+          read_numeral(ls, seminfo);	// 浮点数
           return TK_NUMBER;
         }
       }
-      case EOZ: {
+      case EOZ: {	// 字符串解析结束
         return TK_EOS;
       }
       default: {
-        if (isspace(ls->current)) {
+        if (isspace(ls->current)) {	// 空白符
           lua_assert(!currIsNewline(ls));
           next(ls);
           continue;
         }
-        else if (isdigit(ls->current)) {
+        else if (isdigit(ls->current)) {	// 数字
           read_numeral(ls, seminfo);
           return TK_NUMBER;
         }
-        else if (isalpha(ls->current) || ls->current == '_') {
+        else if (isalpha(ls->current) || ls->current == '_') {// 字母或下划线开头
           /* identifier or reserved word */
           TString *ts;
           do {
@@ -454,10 +454,10 @@ static int llex (LexState *ls, SemInfo *seminfo) {
             return ts->tsv.reserved - 1 + FIRST_RESERVED;
           else {
             seminfo->ts = ts;
-            return TK_NAME;
+            return TK_NAME;	// 标识符
           }
         }
-        else {
+        else {	// 单个ASCII字符
           int c = ls->current;
           next(ls);
           return c;  /* single-char tokens (+ - / ...) */
@@ -467,18 +467,18 @@ static int llex (LexState *ls, SemInfo *seminfo) {
   }
 }
 
-
+// 读取下一个记号
 void luaX_next (LexState *ls) {
   ls->lastline = ls->linenumber;
-  if (ls->lookahead.token != TK_EOS) {  /* is there a look-ahead token? */
+  if (ls->lookahead.token != TK_EOS) {  /* is there a look-ahead token? */// 已经预读取了
     ls->t = ls->lookahead;  /* use this one */
-    ls->lookahead.token = TK_EOS;  /* and discharge it */
+    ls->lookahead.token = TK_EOS;  /* and discharge it */// 记得释放，防止下次重复
   }
   else
     ls->t.token = llex(ls, &ls->t.seminfo);  /* read next token */
 }
 
-
+// 预读取下一个记号
 void luaX_lookahead (LexState *ls) {
   lua_assert(ls->lookahead.token == TK_EOS);
   ls->lookahead.token = llex(ls, &ls->lookahead.seminfo);

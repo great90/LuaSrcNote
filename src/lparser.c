@@ -38,11 +38,11 @@
 ** nodes for block list (list of active blocks)
 */
 typedef struct BlockCnt {
-  struct BlockCnt *previous;  /* chain */
-  int breaklist;  /* list of jumps out of this loop */
-  lu_byte nactvar;  /* # active locals outside the breakable structure */
-  lu_byte upval;  /* true if some variable in the block is an upvalue */
-  lu_byte isbreakable;  /* true if `block' is a loop */
+  struct BlockCnt *previous;  /* chain */// 链表指针
+  int breaklist;  /* list of jumps out of this loop */// 跳出此循环的列表
+  lu_byte nactvar;  /* # active locals outside the breakable structure */// 在可跳出结构外的激活局部变量
+  lu_byte upval;  /* true if some variable in the block is an upvalue */// 块内是否引用了upvalue
+  lu_byte isbreakable;  /* true if `block' is a loop */// 是否为一个循环块
 } BlockCnt;
 
 
@@ -53,7 +53,7 @@ typedef struct BlockCnt {
 static void chunk (LexState *ls);
 static void expr (LexState *ls, expdesc *v);
 
-
+// 保存当前记号到全局字符串表
 static void anchor_token (LexState *ls) {
   if (ls->t.token == TK_NAME || ls->t.token == TK_STRING) {
     TString *ts = ls->t.seminfo.ts;
@@ -61,7 +61,7 @@ static void anchor_token (LexState *ls) {
   }
 }
 
-
+// 提示未获得期望的记号错误
 static void error_expected (LexState *ls, int token) {
   luaX_syntaxerror(ls,
       luaO_pushfstring(ls->L, LUA_QS " expected", luaX_token2str(ls, token)));
@@ -76,7 +76,7 @@ static void errorlimit (FuncState *fs, int limit, const char *what) {
   luaX_lexerror(fs->ls, msg, 0);
 }
 
-
+// 测试当前记号是否和预期相同，相同则读取下一个记号
 static int testnext (LexState *ls, int c) {
   if (ls->t.token == c) {
     luaX_next(ls);
@@ -85,12 +85,12 @@ static int testnext (LexState *ls, int c) {
   else return 0;
 }
 
-
+// 检测当前记号是否与期望相同
 static void check (LexState *ls, int c) {
   if (ls->t.token != c)
     error_expected(ls, c);
 }
-// 检测下一个token是否是期望的
+// 检测当前记号是否是期望的，再读取下一个记号
 static void checknext (LexState *ls, int c) {
   check(ls, c);
   luaX_next(ls);
@@ -432,11 +432,11 @@ static void yindex (LexState *ls, expdesc *v) {
 
 
 struct ConsControl {
-  expdesc v;  /* last list item read */
-  expdesc *t;  /* table descriptor */
-  int nh;  /* total number of `record' elements */
-  int na;  /* total number of array elements */
-  int tostore;  /* number of array elements pending to be stored */
+  expdesc v;  /* last list item read */// 上一次读入的列表项
+  expdesc *t;  /* table descriptor */// 表描述符
+  int nh;  /* total number of `record' elements */// record元素的总数
+  int na;  /* total number of array elements */// 数组元素的总数
+  int tostore;  /* number of array elements pending to be stored */// 将要被存储的数组元素的个数
 };
 
 
@@ -513,8 +513,8 @@ static void constructor (LexState *ls, expdesc *t) {
     closelistfield(fs, &cc);
     switch(ls->t.token) {
       case TK_NAME: {  /* may be listfields or recfields */
-        luaX_lookahead(ls);
-        if (ls->lookahead.token != '=')  /* expression? */
+        luaX_lookahead(ls);// 预读取下一个记号
+        if (ls->lookahead.token != '=')  /* expression? */// 下一个记号是赋值号，表示这是一个表达式
           listfield(ls, &cc);
         else
           recfield(ls, &cc);
@@ -784,7 +784,7 @@ static UnOpr getunopr (int op) {
   }
 }
 
-
+// 获得二元操作符的枚举编号
 static BinOpr getbinopr (int op) {
   switch (op) {
     case '+': return OPR_ADD;
@@ -808,17 +808,17 @@ static BinOpr getbinopr (int op) {
 
 
 static const struct {
-  lu_byte left;  /* left priority for each binary operator */
-  lu_byte right; /* right priority */
+  lu_byte left;  /* left priority for each binary operator */// 每个二元操作符的左优先级
+  lu_byte right; /* right priority */// 右优先级
 } priority[] = {  /* ORDER OPR */
-   {6, 6}, {6, 6}, {7, 7}, {7, 7}, {7, 7},  /* `+' `-' `/' `%' */
-   {10, 9}, {5, 4},                 /* power and concat (right associative) */
-   {3, 3}, {3, 3},                  /* equality and inequality */
-   {3, 3}, {3, 3}, {3, 3}, {3, 3},  /* order */
-   {2, 2}, {1, 1}                   /* logical (and/or) */
+   {6, 6}, {6, 6}, {7, 7}, {7, 7}, {7, 7},  /* `+' `-' `*' `/' `%' */
+   {10, 9}, {5, 4},                 /* power and concat (right associative) */// 乘幂和连接 右结合
+   {3, 3}, {3, 3},                  /* equality and inequality */// 相等和不等
+   {3, 3}, {3, 3}, {3, 3}, {3, 3},  /* order */// 关系运算符
+   {2, 2}, {1, 1}                   /* logical (and/or) */// 逻辑运算符
 };
 
-#define UNARY_PRIORITY	8  /* priority for unary operators */
+#define UNARY_PRIORITY	8  /* priority for unary operators */// 一元操作符的优先级
 
 
 /*
@@ -892,10 +892,10 @@ static void block (LexState *ls) {
 /*
 ** structure to chain all variables in the left-hand side of an
 ** assignment
-*/
+*/// 将赋值语句左边所有变量链起来的节点结构
 struct LHS_assign {
-  struct LHS_assign *prev;
-  expdesc v;  /* variable (global, local, upvalue, or indexed) */
+  struct LHS_assign *prev; // 上一个结构
+  expdesc v;  /* variable (global, local, upvalue, or indexed) */// 变量（全局，局部，上值，或索引）
 };
 
 
